@@ -1,0 +1,337 @@
+<?php
+
+use App\Billing\StripePrices;
+use App\Filament\App\Pages\Billing;
+use App\Filament\App\Widgets\WorkspaceOverview;
+use App\Models\Project;
+use Filament\Actions\Testing\TestAction;
+use Filament\Notifications\Notification;
+use Illuminate\Support\Facades\Exceptions;
+use Packstub\Teams\Facades\Teams;
+use Stripe\Exception\InvalidRequestException;
+
+use function Pest\Laravel\actingAs;
+use function Pest\Laravel\get;
+use function Pest\Laravel\postJson;
+use function Pest\Livewire\livewire;
+
+/**
+ * Stripe's answer to a subscription being read or changed.
+ */
+function stripeSubscription(string $price, string $status = 'active', array $extra = []): array
+{
+    return [
+        'id' => 'sub_test',
+        'object' => 'subscription',
+        'status' => $status,
+        'items' => ['object' => 'list', 'data' => [[
+            'id' => 'si_test',
+            'object' => 'subscription_item',
+            'quantity' => 1,
+            'price' => ['id' => $price, 'object' => 'price', 'product' => 'prod_test'],
+        ]]],
+        ...$extra,
+    ];
+}
+
+beforeEach(function () {
+    $this->workspace = workspace('free');
+    $this->workspace->forceFill(['stripe_id' => 'cus_test'])->save();
+});
+
+it('opens Billing for owners and admins only', function (string $role, int $status) {
+    actingAs(memberOf($this->workspace, $role))
+        ->get("/app/{$this->workspace->slug}/billing")
+        ->assertStatus($status);
+})->with([
+    'owner' => ['owner', 200],
+    'admin' => ['admin', 200],
+    'member' => ['member', 403],
+]);
+
+it('keeps Billing from guests and from members of other workspaces', function () {
+    get("/app/{$this->workspace->slug}/billing")->assertRedirect('/app/login');
+
+    actingAs(Teams::ownersOf(workspace())->first())
+        ->get("/app/{$this->workspace->slug}/billing")
+        ->assertNotFound();
+});
+
+it('refuses every action to someone who lost their role while the page was open', function (string $action, array $arguments) {
+    $stripe = fakeStripe();
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro', $action === 'completePayment' ? 'incomplete' : 'active'))->assertOk();
+
+    $admin = memberOf($this->workspace, 'admin');
+
+    inWorkspace($this->workspace->fresh(), $admin);
+
+    $page = livewire(Billing::class)->assertOk();
+
+    Teams::changeRole($this->workspace, $admin, 'member');
+
+    // Asked for by the browser all the same, the page answers 403 and Stripe hears nothing.
+    $page->assertActionHidden(TestAction::make($action)->arguments($arguments))
+        ->call('mountAction', $action, $arguments)
+        ->assertForbidden();
+
+    expect($stripe->requests)->toBe([])
+        ->and($this->workspace->subscriptions()->count())->toBe(1);
+})->with([
+    'subscribe' => ['subscribe', ['plan' => 'business']],
+    'changePlan' => ['changePlan', ['plan' => 'business']],
+    'manage' => ['manage', []],
+    'completePayment' => ['completePayment', []],
+]);
+
+it('explains how to add Stripe keys when there are none', function () {
+    actingAs(Teams::ownersOf($this->workspace)->first())
+        ->get("/app/{$this->workspace->slug}/billing")
+        ->assertOk()
+        ->assertSee('Add your Stripe keys')
+        ->assertSee('STRIPE_SECRET')
+        ->assertSee('Current plan')
+        ->assertDontSee('Choose Pro');
+});
+
+it('offers the paid plans once Stripe is set up', function () {
+    config()->set('cashier.key', 'pk_test_123');
+    config()->set('cashier.secret', 'sk_test_123');
+    config()->set('cashier.webhook.secret', 'whsec_123');
+
+    inWorkspace($this->workspace);
+
+    livewire(Billing::class)
+        ->assertDontSee('Add your Stripe keys')
+        ->assertSee('Choose Pro')
+        ->assertSee('Choose Business')
+        ->assertDontSee('Choose Free');
+});
+
+it('sends the customer to Stripe Checkout for the price of the plan', function () {
+    $stripe = fakeStripe([
+        'GET /v1/customers/cus_test' => ['id' => 'cus_test', 'object' => 'customer'],
+        'POST /v1/checkout/sessions' => ['id' => 'cs_test', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/pay/cs_test'],
+    ]);
+
+    inWorkspace($this->workspace);
+
+    livewire(Billing::class)
+        ->callAction(TestAction::make('subscribe')->arguments(['plan' => 'pro']))
+        ->assertRedirect('https://checkout.stripe.com/c/pay/cs_test');
+
+    // The plan waits for the webhook that follows the payment.
+    expect($stripe->requests)->toContain('POST /v1/checkout/sessions')
+        ->and($this->workspace->fresh()->plan)->toBe('free');
+});
+
+it('thanks the customer who comes back from Stripe Checkout', function () {
+    actingAs(Teams::ownersOf($this->workspace)->first())
+        ->get("/app/{$this->workspace->slug}/billing?checkout=success")
+        ->assertOk();
+
+    Notification::assertNotified('Thank you!');
+});
+
+it('says so when Stripe cannot be reached, and reports the error', function () {
+    Exceptions::fake();
+
+    fakeStripe(['GET /v1/customers/cus_test' => ['error' => ['message' => 'Stripe is having a moment.']]]);
+
+    inWorkspace($this->workspace);
+
+    livewire(Billing::class)
+        ->callAction(TestAction::make('subscribe')->arguments(['plan' => 'pro']))
+        ->assertNoRedirect()
+        ->assertNotified('Stripe could not complete that');
+
+    Exceptions::assertReported(fn (InvalidRequestException $exception): bool => $exception->getMessage() === 'Stripe is having a moment.');
+});
+
+it('does nothing when asked to sell a plan that has no price', function () {
+    $stripe = fakeStripe();
+
+    inWorkspace($this->workspace);
+
+    livewire(Billing::class)
+        ->callAction(TestAction::make('subscribe')->arguments(['plan' => 'free']))
+        ->assertNoRedirect();
+
+    expect($stripe->requests)->toBe([])
+        ->and($this->workspace->fresh()->plan)->toBe('free');
+});
+
+it('offers a switch instead of a checkout to a workspace that already pays', function () {
+    config()->set('cashier.secret', 'sk_test_123');
+
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro'))->assertOk();
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->assertSee('Switch to Business')
+        ->assertDontSee('Choose Business')
+        ->assertActionVisible('manage');
+});
+
+it('moves the subscription to another plan', function () {
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro'))->assertOk();
+
+    $stripe = fakeStripe([
+        'POST /v1/subscriptions/sub_test' => stripeSubscription('price_business'),
+        'GET /v1/subscriptions/sub_test' => stripeSubscription('price_business'),
+    ]);
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->callAction(TestAction::make('changePlan')->arguments(['plan' => 'business']))
+        ->assertNotified("You're on the Business plan");
+
+    expect($stripe->requests)->toContain('POST /v1/subscriptions/sub_test')
+        ->and($this->workspace->fresh()->plan)->toBe('business')
+        ->and($this->workspace->currentSubscription()->stripe_price)->toBe('price_business');
+});
+
+it('sends the customer to the payment page when a switch needs the card confirmed', function () {
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro'))->assertOk();
+
+    // Stripe answers the swap with a payment that needs 3D Secure.
+    fakeStripe([
+        'POST /v1/subscriptions/sub_test' => stripeSubscription('price_business', 'past_due'),
+        'GET /v1/subscriptions/sub_test' => stripeSubscription('price_business', 'past_due', [
+            'latest_invoice' => ['id' => 'in_test', 'object' => 'invoice', 'payments' => ['object' => 'list', 'data' => [
+                ['id' => 'inpay_test', 'object' => 'invoice_payment', 'payment' => ['type' => 'payment_intent', 'payment_intent' => 'pi_needs_action']],
+            ]]],
+        ]),
+        'GET /v1/payment_intents/pi_needs_action' => ['id' => 'pi_needs_action', 'object' => 'payment_intent', 'status' => 'requires_action'],
+    ]);
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->callAction(TestAction::make('changePlan')->arguments(['plan' => 'business']))
+        ->assertRedirect(route('cashier.payment', ['pi_needs_action', 'redirect' => Billing::getUrl()]));
+
+    // The plan waits for the webhook that follows the payment.
+    expect($this->workspace->fresh()->plan)->toBe('pro');
+});
+
+it('opens the customer portal of Stripe', function () {
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro'))->assertOk();
+
+    fakeStripe(['POST /v1/billing_portal/sessions' => ['id' => 'bps_test', 'object' => 'billing_portal.session', 'url' => 'https://billing.stripe.com/p/session/test']]);
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->callAction('manage')
+        ->assertRedirect('https://billing.stripe.com/p/session/test');
+});
+
+it('offers the portal, and neither a checkout nor a switch, while a payment is past due', function () {
+    $stripe = fakeStripe();
+
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro'))->assertOk();
+    postJson('/stripe/webhook', stripeSubscriptionEvent('updated', $this->workspace, 'price_pro', 'past_due'))->assertOk();
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->assertSee('Your last payment did not go through')
+        ->assertSee('Manage billing')
+        ->assertDontSee('Choose ')
+        ->assertDontSee('Switch to ')
+        // Called directly, neither starts beside the subscription that is waiting for its payment.
+        ->callAction(TestAction::make('subscribe')->arguments(['plan' => 'business']))
+        ->assertNoRedirect()
+        ->callAction(TestAction::make('changePlan')->arguments(['plan' => 'business']))
+        ->assertNoRedirect();
+
+    expect($stripe->requests)->toBe([])
+        ->and($this->workspace->subscriptions()->count())->toBe(1)
+        ->and($this->workspace->fresh()->plan)->toBe('pro');
+});
+
+it('sends an unfinished first payment to the payment page, and offers no second checkout', function () {
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro', 'incomplete'))->assertOk();
+
+    fakeStripe([
+        'GET /v1/subscriptions/sub_test' => stripeSubscription('price_pro', 'incomplete', [
+            'latest_invoice' => ['id' => 'in_test', 'object' => 'invoice', 'payments' => ['object' => 'list', 'data' => [
+                ['id' => 'inpay_test', 'object' => 'invoice_payment', 'payment' => ['type' => 'payment_intent', 'payment_intent' => 'pi_first']],
+            ]]],
+        ]),
+        'GET /v1/payment_intents/pi_first' => ['id' => 'pi_first', 'object' => 'payment_intent', 'status' => 'requires_action'],
+    ]);
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->assertSee('Your payment is not finished yet')
+        ->assertDontSee('Choose ')
+        ->callAction('completePayment')
+        ->assertRedirect(route('cashier.payment', ['pi_first', 'redirect' => Billing::getUrl()]));
+});
+
+it('sells nothing in production until the webhook secret is set', function () {
+    config()->set('cashier.secret', 'sk_live_123');
+    app()->detectEnvironment(fn (): string => 'production');
+
+    inWorkspace($this->workspace);
+
+    livewire(Billing::class)
+        ->assertSee('Paid plans are on their way')
+        ->assertDontSee('STRIPE_WEBHOOK_SECRET')
+        ->assertDontSee('Choose Pro');
+});
+
+it('knows when plans can be sold', function (?string $secret, ?string $webhookSecret, string $environment, bool $configured) {
+    config()->set('cashier.secret', $secret);
+    config()->set('cashier.webhook.secret', $webhookSecret);
+    app()->detectEnvironment(fn (): string => $environment);
+
+    expect(StripePrices::configured())->toBe($configured);
+})->with([
+    'no keys' => [null, null, 'local', false],
+    'an empty secret' => ['', 'whsec_123', 'local', false],
+    'a secret, locally' => ['sk_test_123', null, 'local', true],
+    'a secret without the webhook secret, in production' => ['sk_live_123', null, 'production', false],
+    'both secrets, in production' => ['sk_live_123', 'whsec_123', 'production', true],
+]);
+
+it('maps Stripe prices to plans and back', function (?string $price, ?string $plan) {
+    expect(StripePrices::plan($price))->toBe($plan);
+})->with([
+    'the Pro price' => ['price_pro', 'pro'],
+    'the Business price' => ['price_business', 'business'],
+    'a price no plan has' => ['price_yearly', null],
+    'an empty price' => ['', null],
+    'no price' => [null, null],
+]);
+
+it('sells only the plans that have a price', function () {
+    config()->set('billing.prices.business', '');
+
+    expect(StripePrices::for('pro'))->toBe('price_pro')
+        ->and(StripePrices::for('business'))->toBeNull()
+        ->and(StripePrices::for('free'))->toBeNull()
+        // An empty price in the config never matches a subscription without one.
+        ->and(StripePrices::plan(''))->toBeNull();
+});
+
+it('shows on the dashboard what the workspace has used of its plan', function () {
+    Project::factory()->count(2)->for($this->workspace)->create();
+    Teams::invite($this->workspace, 'nina@example.com', send: false);
+
+    inWorkspace($this->workspace);
+
+    // The owner and the pending invitation each take a seat.
+    livewire(WorkspaceOverview::class)
+        ->assertSeeInOrder(['Plan', 'Free', 'Projects', '2 of 3', 'Seats', '2 of 2']);
+
+    $this->workspace->changePlan('business');
+
+    livewire(WorkspaceOverview::class)
+        ->assertSee('Business')
+        ->assertDontSee(' of ');
+});
