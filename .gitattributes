@@ -1,0 +1,21 @@
+* text=auto eol=lf
+
+*.blade.php diff=html
+*.css diff=css
+*.html diff=html
+*.md diff=markdown
+*.php diff=php
+
+# Maintainer files: left out of the archive a new project is created from.
+# What a new project keeps from .github: tests.yml and dependabot.yml.
+/.claude export-ignore
+/.github/CONTRIBUTING.md export-ignore
+/.github/FUNDING.yml export-ignore
+/.github/ISSUE_TEMPLATE export-ignore
+/.github/release.yml export-ignore
+/.github/workflows/add-to-project.yml export-ignore
+/.github/workflows/dependabot-auto-merge.yml export-ignore
+/.github/workflows/github-release.yml export-ignore
+/CHANGELOG.md export-ignore
+/RELEASING.md export-ignore
+/SECURITY.md export-ignore
