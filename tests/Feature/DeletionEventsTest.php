@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Str;
 use Packstub\Teams\Facades\Teams;
 
+use function Pest\Laravel\postJson;
+
 it('tells listeners which workspace is going, while its projects are still there', function () {
     $workspace = workspace();
     Project::factory()->count(2)->for($workspace)->create();
@@ -36,6 +38,21 @@ it('keeps the workspace and everything it had when a listener fails', function (
 
     expect(Workspace::query()->whereKey($workspace->id)->exists())->toBeTrue()
         ->and($workspace->projects()->count())->toBe(1);
+});
+
+it('asks nothing of Stripe when a listener stops the delete', function () {
+    $workspace = workspace('free');
+    $workspace->forceFill(['stripe_id' => 'cus_test'])->save();
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $workspace, 'price_pro'))->assertOk();
+    $stripe = fakeStripe([]);
+
+    Event::listen(fn (WorkspaceDeleting $event) => throw new RuntimeException('A module could not clean up.'));
+
+    expect(fn () => $workspace->delete())->toThrow(RuntimeException::class);
+
+    // The paid subscription is still running: the customer keeps what they pay for.
+    expect($stripe->requests)->toBe([])
+        ->and($workspace->currentSubscription())->not->toBeNull();
 });
 
 it('tells listeners whose account is going, after the workspaces only they used', function () {

@@ -13,7 +13,8 @@ use Illuminate\Foundation\Events\Dispatchable;
  * Dispatched inside the transaction that deletes the account, after the
  * workspaces only they used are deleted and before their own row goes.
  * Listen synchronously, as for WorkspaceDeleting: an exception stops the
- * deletion and rolls everything back.
+ * deletion and rolls everything back. Files and calls to other services go
+ * in DB::afterCommit(), as there.
  */
 final class AccountDeleting
 {

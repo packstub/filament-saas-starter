@@ -71,15 +71,16 @@ class Workspace extends Model
         // feature overrides, so their rows are removed here. Members and
         // invitations go with the workspace by their own foreign keys.
         static::deleting(function (Workspace $workspace): void {
+            // What a module adds (docs/modules) is removed by its own listener. First, so a
+            // listener that fails stops the delete before anything has been asked of Stripe.
+            WorkspaceDeleting::dispatch($workspace);
+
             // Nothing keeps billing a workspace that is gone. Without a Stripe secret
             // there is no way to reach Stripe, and nothing it could be charging for.
             // If Stripe refuses, the exception stops the delete and everything stays.
             if (filled(config('cashier.secret'))) {
                 $workspace->cancelStripeSubscription();
             }
-
-            // What a module adds (docs/modules) is removed by its own listener.
-            WorkspaceDeleting::dispatch($workspace);
 
             $workspace->projects()->delete();
 
