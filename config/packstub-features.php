@@ -52,9 +52,21 @@ return [
     */
 
     'plans' => [
-        'free' => ['label' => 'Free', 'description' => 'For trying things out.', 'price' => '$0', 'features' => ['projects' => 3, 'seats' => 2]],
-        'pro' => ['label' => 'Pro', 'description' => 'For a growing team.', 'features' => ['projects' => 50, 'seats' => 10, 'api_access' => true]],
-        'business' => ['label' => 'Business', 'description' => 'No limits, and help when you need it.', 'features' => ['projects' => null, 'seats' => null, 'api_access' => true, 'priority_support' => true]],
+        'free' => ['label' => 'Free', 'description' => 'For trying things out.', 'price' => '$0', 'features' => [
+            'projects' => 3,
+            'seats' => 2,
+        ]],
+        'pro' => ['label' => 'Pro', 'description' => 'For a growing team.', 'features' => [
+            'projects' => 50,
+            'seats' => 10,
+            'api_access' => true,
+        ]],
+        'business' => ['label' => 'Business', 'description' => 'No limits, and help when you need it.', 'features' => [
+            'projects' => null,
+            'seats' => null,
+            'api_access' => true,
+            'priority_support' => true,
+        ]],
     ],
 
     'default_plan' => env('PACKSTUB_FEATURES_DEFAULT_PLAN', 'free'),
