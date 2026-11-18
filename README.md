@@ -110,7 +110,7 @@ The **Members** and **Invitations** pages come from Filament Teams. An owner or 
 Someone with an account signs in there and joins. They also find the invitation under the bell icon. Someone new follows **sign up for an account**, finds the invited address filled in, and joins the workspace instead of getting one of their own.
 
 - Roles and what each may do are in `config/packstub-teams.php`: **Owner** can do everything, **Admin** manages members, settings and billing, **Member** works with the workspace's data.
-- **Transfer ownership**, on a member's row, is for owners: the member becomes the owner and the former owner stays on as an admin. Only an owner can delete the workspace or export its data, and Stripe's receipts go to the owner's address, so `app/Listeners/UpdateStripeBillingContact.php` updates the Stripe customer after a transfer (queued, like the seat sync).
+- **Transfer ownership**, on a member's row, is for owners: the member becomes the owner and the former owner stays on as an admin. Only an owner can delete the workspace or export its data, and Stripe's receipts go to the owner's address, so `app/Listeners/UpdateStripeBillingContact.php` queues `app/Jobs/SyncStripeCustomer.php` to update the Stripe customer after a transfer (by the workspace's id, like the seat sync).
 - Check a role anywhere with `$user->hasTeamPermission($workspace, 'delete')` or `$user->canManageTeam($workspace)`.
 - Seats are members plus pending invitations, and their limit comes from the plan.
 - Invitation e-mails go to the log locally (`MAIL_MAILER=log`): the link is in `storage/logs/laravel.log`. They are queued (`invitations.mail.queue` in `config/packstub-teams.php`), which with `QUEUE_CONNECTION=sync` still means sent right away.
@@ -192,7 +192,7 @@ How a payment becomes a plan:
 Plans are flat by default: one price, whatever the number of members. To bill a plan per member instead, set `'per_seat' => true` on it in `config/billing.php`, give it per-unit prices in Stripe ("$9 per seat"), and say so in its `amount`. Then:
 
 - Checkout starts the subscription with one seat per member. Pending invitations hold a seat against the plan's limit but are billed only once accepted.
-- When someone joins (an accepted invitation included) or leaves, `app/Listeners/SyncSeatQuantityWithStripe.php` sets the subscription's quantity to the number of members, and Stripe prorates the difference. It runs on the queue once the membership is saved, so run a queue worker in production; a call Stripe refuses is reported and tried again.
+- When someone joins (an accepted invitation included) or leaves, `app/Listeners/SyncSeatQuantityWithStripe.php` queues `app/Jobs/SyncSeatQuantity.php`, which sets the subscription's quantity to the number of members, and Stripe prorates the difference. The job runs once the membership is saved, so run a queue worker in production; a call Stripe refuses is reported and tried again. It carries the workspace's id only: Filament Teams' events hold whole `User` models, and a queued listener would write their password hashes and remember tokens into the `jobs` table.
 - Every subscription webhook checks the quantity too, so a change made in the Stripe dashboard or a failed update is put right.
 - Switching between a flat and a per-seat plan sets the quantity to match.
 - Give a per-seat plan unlimited `seats` in `config/packstub-features.php` (or a cap you want), since every seat is paid for.
@@ -273,6 +273,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `ProjectLimitTest`: projects stay in their workspace, creating stops at the plan's limit and resumes on a bigger plan, a smaller plan keeps what is there.
 - `ProjectAccessTest`: what each role may do with a project, other workspaces' projects stay out of reach by URL and by action, and the list runs the same number of queries however long it is.
 - `BillingTest`: subscription webhooks (created, updated, each Stripe status, a trial and its end, deleted, customer deleted) change the plan and the limits; signed and unsigned webhooks; unknown prices.
+- `QueuedJobsTest`: queued jobs, stored by a real database queue, never hold a person's password hash, remember token, two-factor secret or e-mail address; a job for a deleted workspace is dropped.
 - `SeatBillingTest`: per-seat plans: Checkout with a seat per member, the quantity following members who join, leave or accept an invitation, flat plans left alone, Stripe errors, a quantity put right by the next webhook.
 - `BillingPageTest`: the Billing page by role, with and without Stripe keys, monthly and yearly prices, the free trial, Checkout, switching plans and intervals, the customer portal, a past-due subscription and a payment that needs confirming.
 - `AuditLogTest`: what is recorded and by whom (a support login included), plan changes from Stripe and from the admin panel, a deleted workspace and deleted people, pruning, the Activity page by role and by workspace.

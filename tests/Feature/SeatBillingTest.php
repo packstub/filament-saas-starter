@@ -1,10 +1,9 @@
 <?php
 
 use App\Filament\App\Pages\Billing;
-use App\Listeners\SyncSeatQuantityWithStripe;
+use App\Jobs\SyncSeatQuantity;
 use App\Models\User;
 use Filament\Actions\Testing\TestAction;
-use Illuminate\Events\CallQueuedListener;
 use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Queue;
 use Packstub\Teams\Facades\Teams;
@@ -112,13 +111,13 @@ it('leaves a subscription that is not in good standing alone', function (string 
     expect($stripe->requests)->toBe([]);
 })->with(['incomplete', 'past_due', 'unpaid']);
 
-it('runs on the queue once the membership is saved', function () {
+it('queues the sync once the membership is saved', function () {
     Queue::fake();
     subscribeToPro(1);
 
     memberOf($this->workspace, 'member');
 
-    Queue::assertPushed(CallQueuedListener::class, fn ($job): bool => $job->class === SyncSeatQuantityWithStripe::class);
+    Queue::assertPushed(SyncSeatQuantity::class, fn (SyncSeatQuantity $job): bool => $job->workspace->is($this->workspace));
 });
 
 it('keeps the new member when Stripe cannot be reached, and reports it', function () {
