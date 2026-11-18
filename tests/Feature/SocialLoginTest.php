@@ -1,5 +1,6 @@
 <?php
 
+use App\Filament\Admin\Resources\Users\Pages\ManageUsers;
 use App\Filament\App\Pages\Auth\EditProfile;
 use App\Models\SocialAccount;
 use App\Models\User;
@@ -9,6 +10,7 @@ use Filament\Facades\Filament;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\InvalidStateException;
 use Laravel\Socialite\Two\User as ProviderUser;
+use Packstub\AccountSwitcher\Facades\AccountSwitcher;
 use Packstub\Teams\Facades\Teams;
 
 use function Pest\Laravel\actingAs;
@@ -249,4 +251,28 @@ it('lists connected accounts in the personal export', function () {
     expect(DataExport::forUser($user)['connected_accounts'])->toHaveCount(1)
         ->and(DataExport::forUser($user)['connected_accounts'][0])->toMatchArray(['provider' => 'google', 'email' => 'nina@gmail.test'])
         ->not->toHaveKey('provider_id');
+});
+
+it('never connects an account or starts a sign-in during a support login', function () {
+    $owner = User::factory()->create();
+    $workspace = workspace('pro', $owner);
+
+    inAdminPanel(admin());
+    livewire(ManageUsers::class)->callAction(TestAction::make('impersonate')->table($owner));
+    inWorkspace($workspace, $owner);
+    expect(AccountSwitcher::isImpersonating())->toBeTrue();
+
+    // The admin's own GitHub, which would let them sign in as the customer later.
+    providerReturns('github', 'admins-github', 'admin-personal@example.com');
+
+    // The browser's session, which holds the support login. Refused with a 403, which
+    // Account Switcher answers right after a switch with a redirect back into the workspace.
+    $this->withSession(session()->all());
+
+    $redirect = $this->get('/auth/github/redirect');
+    $this->get('/auth/github/callback');
+
+    expect($redirect->isForbidden() || ! str_contains((string) $redirect->headers->get('Location'), 'github.com'))->toBeTrue();
+    expect($owner->socialAccounts()->count())->toBe(0)
+        ->and(SocialAccount::count())->toBe(0);
 });

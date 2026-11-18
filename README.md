@@ -134,6 +134,7 @@ A provider with both values set gets a **Continue with …** button under the si
 - An account already connected signs its user in. A new one whose e-mail address the provider has verified is connected to the user with that address, or creates a user (already verified, with their first workspace, or the workspace of the invitation that brought them).
 - An address is linked only when both sides have verified it. If the provider has not verified it, or the account with that address has not been verified yet, nothing is linked and the person is asked to sign in with their password: otherwise whoever registered an address they do not own could take over the other account.
 - Two-factor authentication is never skipped: someone with an authenticator app, and every admin, signs in with their password and code instead.
+- Never during a [support login](#support-logins): both routes refuse while an admin is signed in as someone, so support can never leave a Google or GitHub account of their own on a customer's account.
 - Someone who signed up this way has no password (`users.password` is nullable) until they choose one on the Profile page, which then does not ask for a current one. **Disconnect** is refused for their last way to sign in, and **Delete account** asks them to type their e-mail address instead of a password.
 - Connected accounts are in `social_accounts`, a central table removed with the user, and in the personal data export.
 

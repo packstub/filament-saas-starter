@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Laravel\Socialite\Contracts\User as ProviderUser;
 use Laravel\Socialite\Facades\Socialite;
+use Packstub\AccountSwitcher\Facades\AccountSwitcher;
 use Throwable;
 
 /**
@@ -29,6 +30,8 @@ use Throwable;
  *   their first workspace, or the workspace of the invitation that brought
  *   them here (Filament Teams listens to `Registered` and `Login`).
  *
+ * Never during a support login: the admin is not the account's owner.
+ *
  * Two-factor authentication is never skipped: someone who has it on, and
  * every admin, signs in with their password and code instead.
  */
@@ -37,6 +40,10 @@ class SocialCallbackController
     public function __invoke(Request $request, string $provider): RedirectResponse
     {
         abort_unless(SocialLogin::isEnabled($provider), 404);
+
+        // An admin signed in as a customer could connect their own Google or GitHub to the
+        // customer's account and sign in as them later, outside any support login.
+        abort_if(AccountSwitcher::isImpersonating(), 403);
 
         $label = SocialLogin::PROVIDERS[$provider];
 
