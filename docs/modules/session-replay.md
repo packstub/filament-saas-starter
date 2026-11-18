@@ -47,7 +47,7 @@ SessionReplayPlugin::make()->record(false)->navigationGroup('Customers'),
 
 ## 3. Say who may watch
 
-Only admins. In `app/Providers/AppServiceProvider.php`:
+Only admins, and only with two-factor authentication, as `/admin` asks (except locally, where the developer logins skip it). The player's data routes sit outside the admin panel, so the gate says it itself. In `app/Providers/AppServiceProvider.php`:
 
 ```php use=app/Providers/AppServiceProvider.php
 use Illuminate\Support\Facades\Gate;
@@ -57,11 +57,13 @@ and in `boot()`:
 
 ```php in=app/Providers/AppServiceProvider.php after="function boot()|Model::shouldBeStrict("
 
-// Session replays are for your own team (the admin panel), never for customers.
-Gate::define('viewSessionReplay', fn (User $user): bool => $user->is_admin);
+// Session replays are for your own team, never for customers: admins with two-factor
+// authentication, as /admin requires, on the player's data routes outside the panel too.
+Gate::define('viewSessionReplay', fn (User $user): bool => $user->is_admin
+    && (filled($user->getAppAuthenticationSecret()) || app()->isLocal()));
 ```
 
-Then turn off the package's own pages at `/session-replay`, so recordings are watched only inside `/admin`, behind its two-factor authentication. In `config/session-replay.php`, under `viewer`:
+Then turn off the package's own list and player pages at `/session-replay`, so recordings are watched inside `/admin`. The data routes behind the player stay, behind the gate above. In `config/session-replay.php`, under `viewer`:
 
 ```php in=config/session-replay.php replace="'viewer' => [|'enabled' =>"
 // Watched in the admin panel only; the player's data routes stay.
@@ -78,7 +80,12 @@ The recorder masks every input and password before anything leaves the browser. 
 'filament.app.pages.api-tokens',
 ```
 
-For your own pages, mask a field, column or section where you define it: `TextColumn::make('iban')->maskInReplay()`, `Section::make('Billing')->blockInReplay()`. See [Masking](https://github.com/packstub/filament-session-replay/blob/main/docs/masking.md).
+Everything else a page *shows* is recorded as text: members' names and e-mail addresses, project names, the Billing page. Decide what your team should see:
+
+- mask a field, column or section where you define it: `TextColumn::make('email')->maskInReplay()`, `Section::make('Billing')->blockInReplay()` (see [Masking](https://github.com/packstub/filament-session-replay/blob/main/docs/masking.md));
+- or record layout only, every text masked: `'mask_all_text' => true` under `privacy` in `config/session-replay.php`.
+
+The two excluded pages are left out on a full page load. If you later turn on `->spa()` on the app panel, a recording carries on across `wire:navigate` with those pages as a gap: check the package's notes before you do.
 
 ## 5. Prune old recordings
 
@@ -114,32 +121,56 @@ namespace App\Listeners;
 
 use App\Events\AccountDeleting;
 use App\Events\WorkspaceDeleting;
+use Illuminate\Support\Facades\DB;
 use Packstub\SessionReplay\Models\ReplaySession;
 
 /**
  * A deleted workspace's recordings go with it, and so do a deleted
- * person's, in every workspace they used. Deleting a recording also
- * deletes its files on the disk, which a rolled-back deletion does not
- * bring back: the recordings were going anyway.
+ * person's, in every workspace they used: once the deletion is committed,
+ * since deleting a recording also deletes its files on the disk, which a
+ * rolled-back deletion could not bring back.
  */
 class DeleteSessionReplays
 {
     public function handle(WorkspaceDeleting|AccountDeleting $event): void
     {
-        $recordings = $event instanceof WorkspaceDeleting
+        $ids = ($event instanceof WorkspaceDeleting
             ? ReplaySession::query()->forTenant($event->workspace)
-            : ReplaySession::query()->forUser($event->user);
+            : ReplaySession::query()->forUser($event->user))->pluck('id');
 
-        $recordings->each(fn (ReplaySession $recording) => $recording->delete());
+        DB::afterCommit(fn () => ReplaySession::query()->whereKey($ids)
+            ->each(fn (ReplaySession $recording) => $recording->delete()));
     }
 }
 ```
 
-## 8. Tell your customers
+## 8. Tell your customers, and ask first where the law says so
 
-Add a paragraph to your privacy policy (`resources/views/site/privacy.blade.php`). The package's [Privacy](https://github.com/packstub/session-replay/blob/main/docs/privacy.md#wording-for-your-privacy-policy) page has wording to start from. Recording starts without asking (`SESSION_REPLAY_CONSENT=always`); where you need consent first, set `opt-in` and call `SessionReplay.consent(true)` from your consent banner.
+- **Consent.** Recording starts without asking (`SESSION_REPLAY_CONSENT=always`). For customers in the EU and the UK, recording what people do in your app usually needs their consent first (ePrivacy, GDPR): set `SESSION_REPLAY_CONSENT=opt-in` and call `SessionReplay.consent(true)` from your consent banner. Ask your own lawyer; this is not legal advice.
+- **Your privacy policy** (`resources/views/site/privacy.blade.php`) says what is recorded, who watches and for how long. The package's [Privacy](https://github.com/packstub/session-replay/blob/main/docs/privacy.md#wording-for-your-privacy-policy) page has wording to start from.
+- **Retention.** Recordings are deleted after `SESSION_REPLAY_RETENTION_DAYS` (30) by the daily prune, at once when their workspace or their person is deleted, and a person's data export lists them (step 9). Someone who leaves a workspace keeps their recordings in it until they expire.
 
-## 9. Test it
+## 9. List them in a person's data export
+
+A recording is personal data about the person recorded. In `app/Support/DataExport.php`:
+
+```php use=app/Support/DataExport.php
+use Packstub\SessionReplay\Models\ReplaySession;
+```
+
+at the end of the array `forUser()` returns (when and where, not the recording itself, which is your team's support record):
+
+```php in=app/Support/DataExport.php before="function forUser(|        ];" indent=12
+// Session Replay: when this person was recorded, and on which pages.
+'session_recordings' => ReplaySession::query()->forUser($user)->oldest('started_at')->get()
+    ->map(fn (ReplaySession $recording): array => [
+        'started_at' => self::date($recording->started_at),
+        'first_page' => $recording->entry_url,
+        'pages' => $recording->page_count,
+    ])->all(),
+```
+
+## 10. Test it
 
 `tests/Feature/Modules/SessionReplayTest.php`:
 
@@ -194,7 +225,9 @@ it('lets admins watch from the admin panel, and nobody else', function () {
     $member = memberOf($workspace, 'member');
     recordingOf($member, $workspace);
 
-    expect(Gate::forUser($member)->allows('viewSessionReplay'))->toBeFalse();
+    expect(Gate::forUser($member)->allows('viewSessionReplay'))->toBeFalse()
+        // An admin who has not set up two-factor authentication yet, outside local.
+        ->and(Gate::forUser(User::factory()->admin()->create())->allows('viewSessionReplay'))->toBe(app()->isLocal());
 
     actingAs(admin())
         ->get(ReplaySessionResource::getUrl(panel: 'admin'))
@@ -218,7 +251,16 @@ it('deletes the recordings of a deleted workspace and of a deleted account', fun
 
     $owner->deleteAccount();
 
-    expect(ReplaySession::query()->pluck('id')->all())->toBe([$kept->id]);
+    expect(ReplaySession::query()->pluck('id')->all())->toBe([$kept->id])
+        ->and(rowsLeftOf($workspace))->toBe([]);
+});
+
+it('lists a person\'s recordings in their data export', function () {
+    $workspace = workspace();
+    $member = memberOf($workspace, 'member');
+    recordingOf($member, $workspace);
+
+    expect(App\Support\DataExport::forUser($member)['session_recordings'])->toHaveCount(1);
 });
 
 it('prunes old recordings every day', function () {
