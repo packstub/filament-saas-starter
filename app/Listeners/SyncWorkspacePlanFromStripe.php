@@ -2,6 +2,7 @@
 
 namespace App\Listeners;
 
+use App\Jobs\SyncSeatQuantity;
 use App\Models\Workspace;
 use Laravel\Cashier\Cashier;
 use Laravel\Cashier\Events\WebhookHandled;
@@ -27,8 +28,9 @@ class SyncWorkspacePlanFromStripe
             $workspace->syncPlanFromSubscription();
 
             // A per-seat subscription whose quantity drifted from the members (a sync
-            // that failed, a change in the Stripe dashboard) is put right here.
-            $workspace->syncSeatQuantity();
+            // that failed, a change in the Stripe dashboard) is put right, on the queue:
+            // a Stripe error there must not fail the webhook, which Stripe would retry for days.
+            SyncSeatQuantity::dispatch($workspace);
         }
     }
 

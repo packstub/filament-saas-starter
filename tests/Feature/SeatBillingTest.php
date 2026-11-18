@@ -146,6 +146,20 @@ it('puts a drifted quantity right when the next subscription webhook arrives', f
         ->and($this->workspace->currentSubscription()->quantity)->toBe(3);
 });
 
+it('answers the webhook even when Stripe refuses to correct the quantity', function () {
+    Exceptions::fake();
+    memberOf($this->workspace, 'member');
+
+    fakeStripe(['POST /v1/subscriptions/sub_test' => ['error' => ['message' => 'Rate limited.']]]);
+
+    // Stripe says one seat; the workspace has two members, and Stripe refuses the update.
+    subscribeToPro(1);
+
+    expect($this->workspace->fresh()->plan)->toBe('pro');
+
+    Exceptions::assertReported(fn (InvalidRequestException $exception): bool => $exception->getMessage() === 'Rate limited.');
+});
+
 it('moves between a flat and a per-seat plan with the right quantity', function () {
     config()->set('billing.plans.business.per_seat', false);
     memberOf($this->workspace, 'member');

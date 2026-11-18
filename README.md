@@ -193,7 +193,7 @@ Plans are flat by default: one price, whatever the number of members. To bill a 
 
 - Checkout starts the subscription with one seat per member. Pending invitations hold a seat against the plan's limit but are billed only once accepted.
 - When someone joins (an accepted invitation included) or leaves, `app/Listeners/SyncSeatQuantityWithStripe.php` queues `app/Jobs/SyncSeatQuantity.php`, which sets the subscription's quantity to the number of members, and Stripe prorates the difference. The job runs once the membership is saved, so run a queue worker in production; a call Stripe refuses is reported and tried again. It carries the workspace's id only: Filament Teams' events hold whole `User` models, and a queued listener would write their password hashes and remember tokens into the `jobs` table.
-- Every subscription webhook checks the quantity too, so a change made in the Stripe dashboard or a failed update is put right.
+- Every subscription webhook queues the same job, so a change made in the Stripe dashboard or a failed update is put right; a Stripe error there never fails the webhook.
 - Switching between a flat and a per-seat plan sets the quantity to match.
 - Give a per-seat plan unlimited `seats` in `config/packstub-features.php` (or a cap you want), since every seat is paid for.
 
