@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Auth\SocialCallbackController;
+use App\Http\Controllers\Auth\SocialRedirectController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PersonalDataExportController;
 use App\Http\Controllers\WorkspaceDataExportController;
@@ -19,6 +21,12 @@ Route::middleware('auth')->prefix('exports')->name('exports.')->group(function (
     Route::get('workspaces/{workspace:slug}', WorkspaceDataExportController::class)
         ->can('export', 'workspace')
         ->name('workspace');
+});
+
+// Signing in with Google or GitHub (config/services.php); 404 for a provider without credentials.
+Route::middleware('throttle:20,1')->group(function (): void {
+    Route::get('/auth/{provider}/redirect', SocialRedirectController::class)->name('social.redirect');
+    Route::get('/auth/{provider}/callback', SocialCallbackController::class)->name('social.callback');
 });
 
 // Every public page, for search engines. Add a route name here when you add a page.

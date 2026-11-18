@@ -4,12 +4,14 @@ namespace App\Filament\App\Pages\Auth;
 
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\SocialLogin;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\EditProfile as BaseEditProfile;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -28,6 +30,14 @@ class EditProfile extends BaseEditProfile
         return $schema->components([
             $this->getFormContentComponent(),
             ...Arr::wrap($this->getMultiFactorAuthenticationContentComponent()),
+            Section::make('Connected accounts')
+                ->description(fn (): string => $this->getUser()->hasPassword()
+                    ? 'Sign in with these as well as your password.'
+                    : 'You sign in with these. Choose a password above to have one more way in.')
+                ->compact()
+                ->secondary()
+                ->visible(fn (): bool => $this->isOwnAccount() && (SocialLogin::enabled() || $this->getUser()->socialAccounts()->exists()))
+                ->schema(fn (): array => [Actions::make($this->connectedAccountActions())]),
             Section::make('Your data')
                 ->description('Your account, your workspaces and roles, your notifications and every support login into your account, as one JSON file.')
                 ->compact()
@@ -45,6 +55,69 @@ class EditProfile extends BaseEditProfile
                     Actions::make([$this->deleteAccountAction()]),
                 ]),
         ]);
+    }
+
+    /**
+     * Connect for each provider that is set up, Disconnect for each connected account.
+     *
+     * @return list<Action>
+     */
+    protected function connectedAccountActions(): array
+    {
+        $connected = $this->getUser()->socialAccounts()->get()->keyBy('provider');
+
+        return collect(SocialLogin::PROVIDERS)
+            ->filter(fn (string $label, string $provider): bool => $connected->has($provider) || SocialLogin::isEnabled($provider))
+            ->map(fn (string $label, string $provider): Action => $connected->has($provider)
+                ? $this->disconnectAction()->arguments(['provider' => $provider, 'email' => $connected[$provider]->email])
+                : Action::make("connect_{$provider}")
+                    ->label("Connect {$label}")
+                    ->color('gray')
+                    ->url(route('social.redirect', $provider)))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Disconnect one connected account (the `provider` argument). Never the
+     * last way to sign in: someone without a password keeps at least one.
+     */
+    public function disconnectAction(): Action
+    {
+        $isLast = fn (): bool => $this->getUser()->signInMethodCount() <= 1;
+        $label = fn (array $arguments): string => SocialLogin::PROVIDERS[$arguments['provider'] ?? ''] ?? 'account';
+
+        return Action::make('disconnect')
+            ->label(fn (array $arguments): string => 'Disconnect '.$label($arguments).(filled($arguments['email'] ?? null) ? " ({$arguments['email']})" : ''))
+            ->icon(Heroicon::OutlinedLinkSlash)
+            ->color('gray')
+            ->disabled($isLast)
+            ->tooltip(fn (): ?string => $isLast() ? 'Choose a password first: this is your only way to sign in.' : null)
+            ->authorize(fn (): bool => $this->isOwnAccount())
+            ->requiresConfirmation()
+            ->modalHeading(fn (array $arguments): string => 'Disconnect '.$label($arguments).'?')
+            ->modalDescription(fn (array $arguments): string => 'You will no longer be able to sign in with '.$label($arguments).'.')
+            ->action(function (Action $action, array $arguments) use ($isLast, $label): void {
+                if ($isLast()) {
+                    $action->halt();
+                }
+
+                $this->getUser()->socialAccounts()->where('provider', $arguments['provider'] ?? null)->delete();
+
+                Notification::make()->success()->title($label($arguments).' is disconnected.')->send();
+            });
+    }
+
+    /**
+     * Filament asks for the current password before a new password or e-mail
+     * address is saved. Someone who signed up with Google or GitHub has none
+     * to give; their new address still has to be confirmed from its inbox.
+     */
+    protected function getCurrentPasswordFormComponent(): Component
+    {
+        $component = parent::getCurrentPasswordFormComponent();
+
+        return $this->getUser()->hasPassword() ? $component : $component->hidden();
     }
 
     /**
@@ -80,14 +153,25 @@ class EditProfile extends BaseEditProfile
                 ? 'First hand over ownership of these workspaces under Members, or delete them: '.implode(', ', $this->blockingWorkspaces()).'.'
                 : 'You leave every workspace you share with others. Workspaces where you are the only member are deleted, and their subscriptions cancelled. This cannot be undone.')
             ->modalSubmitAction(fn ($action) => $this->blockingWorkspaces() ? false : $action->label('Delete account'))
-            ->schema(fn (): array => $this->blockingWorkspaces() ? [] : [
-                TextInput::make('password')
-                    ->label('Your password')
-                    ->password()
-                    ->autocomplete('current-password')
-                    ->currentPassword(guard: Filament::getAuthGuard())
-                    ->required(),
-            ])
+            ->schema(fn (): array => match (true) {
+                (bool) $this->blockingWorkspaces() => [],
+                // Someone who signs in with Google or GitHub only confirms with their address.
+                ! $this->getUser()->hasPassword() => [
+                    TextInput::make('email')
+                        ->label('Type your e-mail address to confirm')
+                        ->in([$this->getUser()->email])
+                        ->validationMessages(['in' => 'That is not your e-mail address.'])
+                        ->required(),
+                ],
+                default => [
+                    TextInput::make('password')
+                        ->label('Your password')
+                        ->password()
+                        ->autocomplete('current-password')
+                        ->currentPassword(guard: Filament::getAuthGuard())
+                        ->required(),
+                ],
+            })
             ->action(function (Action $action) {
                 if ($this->blockingWorkspaces()) {
                     $action->halt();

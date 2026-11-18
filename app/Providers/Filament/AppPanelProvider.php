@@ -8,6 +8,7 @@ use App\Filament\App\Pages\Tenancy\RegisterWorkspace;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Support\Plans;
+use App\Support\SocialLogin;
 use App\Support\SupportLogins;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Http\Middleware\Authenticate;
@@ -18,6 +19,8 @@ use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\View\View;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -58,6 +61,9 @@ class AppPanelProvider extends PanelProvider
             ])
             // People who already have an account see their invitations in the bell menu.
             ->databaseNotifications()
+            // "Continue with Google / GitHub" under the sign-in and sign-up forms, once a provider is set up.
+            ->renderHook(PanelsRenderHook::AUTH_LOGIN_FORM_AFTER, fn (): View => view('filament.app.social-login', ['providers' => SocialLogin::enabled()]))
+            ->renderHook(PanelsRenderHook::AUTH_REGISTER_FORM_AFTER, fn (): View => view('filament.app.social-login', ['providers' => SocialLogin::enabled()]))
             ->tenant(Workspace::class, slugAttribute: 'slug')
             ->tenantRegistration(RegisterWorkspace::class)
             ->tenantProfile(EditWorkspace::class)

@@ -11,6 +11,7 @@ All notable changes to `packstub/filament-saas-starter` are documented in this f
 First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Filament 5 to start your product from, built on Filament Teams, Filament Features, Filament Account Switcher and Laravel Cashier.
 
 - Sign-up, log-in, password reset and a profile page, with e-mail verification before the panel opens
+- Sign in and sign up with Google and GitHub once their keys are set, linked only to verified addresses, with connected accounts on the Profile page
 - Two-factor authentication with an authenticator app: optional for customers, required for the admin panel
 - Password rules set in one place, longer and checked against known leaks in production
 - Workspaces as tenants: one per sign-up, as many as a person likes, everything in the panel scoped to the current one

@@ -6,7 +6,7 @@ Free and open source, under the MIT license.
 
 ## What you get in the first hour
 
-- **[Sign-up and log-in](#accounts-and-security)**: Filament's own auth pages, with e-mail verification, password reset, a profile page, two-factor authentication, a download of your data and account deletion.
+- **[Sign-up and log-in](#accounts-and-security)**: Filament's own auth pages, with e-mail verification, Google and GitHub sign-in, password reset, a profile page, two-factor authentication, a download of your data and account deletion.
 - **[Workspaces](#workspaces)**: every sign-up gets one, a person can belong to several, and everything in the panel is scoped to the current one.
 - **[Team members](#members-and-invitations)**: invitations by e-mail or link, the roles Owner, Admin and Member, and seats counted against the plan.
 - **[Plans and limits](#plans-and-limits)**: Free, Pro and Business in one config file, a **Your plan** page with usage, and overrides for a single workspace.
@@ -114,7 +114,27 @@ A workspace is the tenant: the `App\Models\Workspace` model, with its slug in th
 - The secret and the recovery codes are stored encrypted in two columns of the `users` table.
 - **Download your data**, on the **Profile** page, gives a person one JSON file with everything the app holds about them: their account, the workspaces they are in and their role, their notifications, and every support login into their account. **Export workspace data**, in Workspace settings, does the same for a workspace, for owners only (`WorkspacePolicy::export()`): members, invitations, subscriptions, overrides and projects. Both come from `app/Support/DataExport.php` and are plain GET downloads (`/exports/me`, `/exports/workspaces/{slug}`, in `app/Http/Controllers`) streamed to the browser as they are read, so a workspace with many projects never sits in memory whole. The buttons link there rather than returning the file from a Filament action, which Livewire would buffer whole. A table you add for a workspace belongs in `DataExport::forWorkspace()` too.
 - **Delete account** is at the bottom of the **Profile** page (`app/Filament/App/Pages/Auth/EditProfile.php`), behind the person's password. `User::deleteAccount()` deletes every workspace where they are the only member (cancelling its subscription first) and takes them out of the others. Someone who is the only owner of a workspace others still use is asked to hand it over under **Members** (**Transfer ownership**) or delete it first, so no workspace is left without an owner. The button is hidden during a support login. Filament Account Switcher's own log loses the support logins into a deleted account (its `account_switches` rows go with the user); the workspaces' audit logs keep what support did, under "Deleted user".
+- **Google and GitHub sign-in** ([Laravel Socialite](https://laravel.com/docs/socialite)) turn on once their keys are in `.env`; until then no button shows. See [Signing in with Google and GitHub](#signing-in-with-google-and-github).
 - **Strict models**: outside production, `Model::shouldBeStrict()` turns a lazy-loaded relation (an N+1 query), a missing attribute and a field left out of `Fillable` into an error, so you find them while developing.
+
+### Signing in with Google and GitHub
+
+Create an OAuth app with [Google](https://console.cloud.google.com/apis/credentials) and/or [GitHub](https://github.com/settings/developers), register the callback URL (`https://my-app.test/auth/google/callback`, `https://my-app.test/auth/github/callback`), and fill in `.env`:
+
+```ini
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+```
+
+A provider with both values set gets a **Continue with …** button under the sign-in and sign-up forms, and a **Connect** button in **Connected accounts** on the Profile page. The routes are in `routes/web.php`, the flow in `app/Http/Controllers/Auth/SocialCallbackController.php`, the enabled providers in `app/Support/SocialLogin.php`.
+
+- An account already connected signs its user in. A new one whose e-mail address the provider has verified is connected to the user with that address, or creates a user (already verified, with their first workspace, or the workspace of the invitation that brought them).
+- An address is linked only when both sides have verified it. If the provider has not verified it, or the account with that address has not been verified yet, nothing is linked and the person is asked to sign in with their password: otherwise whoever registered an address they do not own could take over the other account.
+- Two-factor authentication is never skipped: someone with an authenticator app, and every admin, signs in with their password and code instead.
+- Someone who signed up this way has no password (`users.password` is nullable) until they choose one on the Profile page, which then does not ask for a current one. **Disconnect** is refused for their last way to sign in, and **Delete account** asks them to type their e-mail address instead of a password.
+- Connected accounts are in `social_accounts`, a central table removed with the user, and in the personal data export.
 
 ### Members and invitations
 
@@ -322,6 +342,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `SeatBillingTest`: per-seat plans: Checkout with a seat per member, the quantity following members who join, leave or accept an invitation, flat plans left alone, Stripe errors, a quantity put right by the next webhook.
 - `BillingPageTest`: the Billing page by role, with and without Stripe keys, monthly and yearly prices, the free trial, Checkout, switching plans and intervals, the customer portal, a past-due subscription, a subscription paused after its trial and resumed, and a payment that needs confirming.
 - `AuditLogTest`: what is recorded and by whom (a support login included), plan changes from Stripe and from the admin panel, a deleted workspace and deleted people, pruning, the Activity page by role and by workspace.
+- `SocialLoginTest`: buttons only for providers with credentials, signing up and signing in, linking only verified addresses on both sides, two-factor accounts and admins refused, a failed provider, an invitation followed by a social sign-up, connecting and disconnecting on the Profile page (never the last way in), choosing a first password, deleting an account without one, the export.
 - `ApiTokenTest`: the API stays inside the token's workspace (lists, by id, creating), validation, the plan's project limit, plans without API access, abilities, missing, wrong, revoked and expired tokens, no browser sessions, the rate limit per token; the API tokens page by role, creating a token shown once, revoking, other workspaces' tokens, the upgrade on the Free plan, deleting a workspace.
 - `RevenueMetricsTest`: MRR from monthly, yearly and per-seat prices, what is left out (trials, ended, unknown prices), churn, plans, sign-ups per day, plan changes, the cache, the dashboard for admins only, no calls to Stripe.
 - `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables, the Activity of every workspace.

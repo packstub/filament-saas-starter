@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
@@ -64,6 +65,34 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     public function canAccessPanel(Panel $panel): bool
     {
         return $panel->getId() !== 'admin' || $this->is_admin;
+    }
+
+    /**
+     * The Google and GitHub accounts this person signs in with.
+     *
+     * @return HasMany<SocialAccount, $this>
+     */
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class);
+    }
+
+    /**
+     * Whether this person can sign in with a password: someone who signed up
+     * with Google or GitHub has none until they choose one.
+     */
+    public function hasPassword(): bool
+    {
+        return filled($this->getAuthPassword());
+    }
+
+    /**
+     * How many ways this person has to sign in: a password, and each connected account.
+     * The last one can never be removed, or they would be locked out.
+     */
+    public function signInMethodCount(): int
+    {
+        return ($this->hasPassword() ? 1 : 0) + $this->socialAccounts()->count();
     }
 
     /**
