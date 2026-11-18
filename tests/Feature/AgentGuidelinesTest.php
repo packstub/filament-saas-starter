@@ -1,5 +1,7 @@
 <?php
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
@@ -66,34 +68,64 @@ it('names only files and folders that exist', function () {
     expect($missing)->toBe([]);
 });
 
-it('names only classes and methods of the app that exist', function () {
+/**
+ * The classes and methods of the app a piece of Markdown names that do not
+ * exist. A model's static call counts only when the model, its query
+ * builder or one of its scopes has the method: Eloquent's __callStatic
+ * would accept any name.
+ *
+ * @return list<string>
+ */
+function missingAppReferences(string $markdown): array
+{
     $classes = collect(File::allFiles(app_path()))
         ->mapWithKeys(fn ($file): array => [$file->getFilenameWithoutExtension() => 'App\\'.str_replace(['/', '.php'], ['\\', ''], $file->getRelativePathname())]);
 
     $missing = [];
 
-    foreach (agentDocuments() as $document => $markdown) {
-        foreach (codeSpans($markdown) as $span) {
-            if (preg_match_all('/\b(App(?:\\\\\w+)+)/', $span, $matches)) {
-                foreach ($matches[1] as $class) {
-                    $namespace = app_path(str_replace('\\', '/', Str::after($class, 'App\\')));
+    foreach (codeSpans($markdown) as $span) {
+        if (preg_match_all('/\b(App(?:\\\\\w+)+)/', $span, $matches)) {
+            foreach ($matches[1] as $class) {
+                $namespace = app_path(str_replace('\\', '/', Str::after($class, 'App\\')));
 
-                    if (! class_exists($class) && ! interface_exists($class) && ! enum_exists($class) && ! trait_exists($class) && ! is_dir($namespace)) {
-                        $missing[] = "{$document}: {$class}";
-                    }
+                if (! class_exists($class) && ! interface_exists($class) && ! enum_exists($class) && ! trait_exists($class) && ! is_dir($namespace)) {
+                    $missing[] = $class;
                 }
             }
+        }
 
-            if (preg_match_all('/\b(\w+)::(\w+)\(/', $span, $matches, PREG_SET_ORDER)) {
-                foreach ($matches as [, $class, $method]) {
-                    // is_callable() accepts what a model forwards to its query builder (`Workspace::where()`).
-                    if ($classes->has($class) && ! method_exists($classes[$class], $method) && ! is_callable([$classes[$class], $method])) {
-                        $missing[] = "{$document}: {$class}::{$method}()";
-                    }
+        if (preg_match_all('/\b(\w+)::(\w+)\(/', $span, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as [, $name, $method]) {
+                $class = $classes->get($name);
+
+                if ($class === null || method_exists($class, $method)) {
+                    continue;
+                }
+
+                $exists = is_subclass_of($class, Model::class)
+                    ? method_exists(Builder::class, $method) || method_exists($class, 'scope'.ucfirst($method))
+                    : is_callable([$class, $method]);
+
+                if (! $exists) {
+                    $missing[] = "{$name}::{$method}()";
                 }
             }
         }
     }
 
+    return $missing;
+}
+
+it('names only classes and methods of the app that exist', function () {
+    $missing = collect(agentDocuments())
+        ->flatMap(fn (string $markdown, string $document): array => array_map(fn (string $reference): string => "{$document}: {$reference}", missingAppReferences($markdown)))
+        ->values()
+        ->all();
+
     expect($missing)->toBe([]);
+});
+
+it('notices a method a guideline makes up, even on a model', function () {
+    expect(missingAppReferences('Use `Workspace::purgeEverything()`, `User::where()` and `App\Models\Nope`.'))
+        ->toEqualCanonicalizing(['App\Models\Nope', 'Workspace::purgeEverything()']);
 });

@@ -4,7 +4,7 @@ Each of these looks harmless and breaks something the tests or the customers rel
 
 - Never delete a workspace with a query (`Workspace::where(…)->delete()`): it skips the Stripe cancellation, the `deleting` hook and the transaction. Use `$workspace->delete()`.
 - Never add a database foreign key from a workspace's table to `workspaces` or `users`, a non-ULID key to one, or put its migration outside `database/migrations/workspace`.
-- Never queue a listener of `WorkspaceDeleting`, `AccountDeleting` or Filament Teams' events, and never put a `User` model in a queued job; pass ids.
+- Never queue a listener of `WorkspaceDeleting`, `AccountDeleting` or Filament Teams' events, and never put a `User` model in a queued job; pass ids. (Queued notifications to a `User` are fine: Laravel stores the notifiable as its id.)
 - Never set a workspace's plan from anything the browser sends (the Checkout success URL, a form field in the customer panel).
 - Never call the Stripe API from a test, from `RevenueMetrics`, or for every page view.
 - Never query a workspace's own tables from the admin panel, or read another workspace's rows in the customer panel (scope through the tenant).
