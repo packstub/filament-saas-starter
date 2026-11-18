@@ -201,7 +201,8 @@ class Workspace extends Model
 
         if ($plan === null) {
             // A price created in Stripe and not added to config/billing.php (a
-            // yearly price, say). The customer pays, so the plan stays as it is.
+            // new price tried out in the dashboard, say). The customer pays, so
+            // the plan stays as it is.
             Log::warning('A Stripe subscription has a price that config/billing.php does not map to a plan; the workspace keeps its current plan.', [
                 'workspace' => $this->getKey(),
                 'subscription' => $subscription->stripe_id,

@@ -8,7 +8,7 @@
 
             <ol style="display:flex;flex-direction:column;gap:.5rem;font-size:.875rem;list-style:decimal;padding-inline-start:1.25rem">
                 <li>
-                    In the Stripe dashboard (test mode), create a product with a recurring price for each paid plan.
+                    In the Stripe dashboard (test mode), create a product for each paid plan, with a monthly recurring price and, if you sell it yearly, a yearly one.
                 </li>
                 <li>
                     Fill in these keys in <code>.env</code>:
@@ -48,6 +48,18 @@
         </x-filament::section>
     @endif
 
+    @if ($this->getIntervals())
+        <div style="display:flex;justify-content:center">
+            <x-filament::tabs label="Billing interval">
+                @foreach ($this->getIntervals() as $key => $label)
+                    <x-filament::tabs.item :active="$this->selectedInterval() === $key" wire:click="$set('interval', '{{ $key }}')">
+                        {{ $label }}
+                    </x-filament::tabs.item>
+                @endforeach
+            </x-filament::tabs>
+        </div>
+    @endif
+
     <div style="display:grid;gap:1.5rem;grid-template-columns:repeat(auto-fit,minmax(16rem,1fr))">
         @foreach ($this->getPlans() as $plan)
             <x-filament::section data-plan="{{ $plan['key'] }}">
@@ -79,7 +91,7 @@
                     @if ($this->isConfigured() && ! $plan['current'] && ! $this->needsPayment())
                         @if ($plan['sold'])
                             <div style="margin-top:auto">
-                                {{ ($this->hasSubscription() ? $this->changePlanAction : $this->subscribeAction)(['plan' => $plan['key']]) }}
+                                {{ ($this->hasSubscription() ? $this->changePlanAction : $this->subscribeAction)(['plan' => $plan['key'], 'interval' => $this->selectedInterval()]) }}
                             </div>
                         @elseif ($this->hasSubscription())
                             <div style="margin-top:auto;font-size:.75rem;opacity:.7">

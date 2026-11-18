@@ -10,7 +10,7 @@ Free and open source, under the MIT license.
 - **[Workspaces](#workspaces)**: every sign-up gets one, a person can belong to several, and everything in the panel is scoped to the current one.
 - **[Team members](#members-and-invitations)**: invitations by e-mail or link, the roles Owner, Admin and Member, and seats counted against the plan.
 - **[Plans and limits](#plans-and-limits)**: Free, Pro and Business in one config file, a **Your plan** page with usage, and overrides for a single workspace.
-- **[Billing](#billing-with-stripe)**: Stripe Checkout and the customer portal through Laravel Cashier, with a webhook that puts the workspace on the plan it pays for.
+- **[Billing](#billing-with-stripe)**: Stripe Checkout and the customer portal through Laravel Cashier, monthly and yearly prices, with a webhook that puts the workspace on the plan it pays for.
 - **[Support logins](#support-logins)**: an admin panel where you sign in as a customer to see what they see, with a log of every switch.
 - **[One complete example](#the-projects-pattern)**: Projects, scoped to the workspace, guarded by a policy and counted against a plan limit.
 - **[Tests](#tests)**: a Pest suite over all of the above, and GitHub Actions to run it.
@@ -145,15 +145,19 @@ The **Billing** page (`app/Filament/App/Pages/Billing.php`) shows the plans to a
 
 The app runs without a Stripe account: the Billing page then lists the `.env` keys that are still missing, and every workspace keeps its plan. To turn billing on:
 
-1. In the Stripe dashboard, in test mode, create a product with a recurring price for Pro and one for Business.
+1. In the Stripe dashboard, in test mode, create a product for Pro and one for Business, each with a monthly recurring price and, if you sell it yearly, a yearly one.
 2. Fill in `.env`:
 
    ```ini
    STRIPE_KEY=pk_test_...
    STRIPE_SECRET=sk_test_...
-   STRIPE_PRICE_PRO=price_...
-   STRIPE_PRICE_BUSINESS=price_...
+   STRIPE_PRICE_PRO_MONTHLY=price_...
+   STRIPE_PRICE_PRO_YEARLY=price_...
+   STRIPE_PRICE_BUSINESS_MONTHLY=price_...
+   STRIPE_PRICE_BUSINESS_YEARLY=price_...
    ```
+
+   Leave a yearly price empty to sell that plan monthly only.
 
 3. Forward Stripe's webhooks to your machine with the [Stripe CLI](https://docs.stripe.com/stripe-cli), and copy the signing secret it prints into `STRIPE_WEBHOOK_SECRET`:
 
@@ -168,17 +172,18 @@ In production, `php artisan cashier:webhook` creates the webhook endpoint in Str
 How a payment becomes a plan:
 
 - A plan's button opens Stripe Checkout for the price in `config/billing.php`. A workspace that already pays gets **Switch to** instead, which moves its subscription to the other price.
+- **Monthly** and **Yearly** above the plans switch the prices the cards show, once any plan has a yearly price. Both prices of a plan map back to it, so a yearly subscriber gets the same limits as a monthly one, and a monthly subscriber can move to yearly billing on the same plan.
 - Stripe calls `/stripe/webhook`. Cashier stores the subscription, then `app/Listeners/SyncWorkspacePlanFromStripe.php` puts the workspace on the plan of that price.
 - When the subscription ends, the same listener puts the workspace back on the Free plan. Its members and projects stay, but inviting and creating stop at the Free limits. The same happens when you delete the customer in Stripe.
 - While Stripe retries a failed payment (`past_due`), the workspace keeps its plan. The Billing page then shows "Your last payment did not go through" with **Manage billing**. It does not offer a new checkout while that subscription is still running.
 - A switch that needs the card confirmed (3D Secure) continues on Cashier's payment page. So does a first payment left unfinished at Checkout: the Billing page shows "Your payment is not finished yet" with **Complete payment**.
 - **Manage billing** opens Stripe's customer portal.
 - Deleting a `Workspace` cancels its Stripe subscription first (the `deleting` hook on the model), so nothing keeps billing, then removes its projects, subscription rows and feature overrides. The kit has no button that deletes a workspace; add one where it suits your product.
-- A subscription on a price that `config/billing.php` does not list (a yearly price added in Stripe, say) leaves the plan as it is and writes a warning to the log.
+- A subscription on a price that `config/billing.php` does not list (a price added in the Stripe dashboard, say) leaves the plan as it is and writes a warning to the log.
 
 In production, set `STRIPE_WEBHOOK_SECRET` before taking payments. Cashier verifies a webhook's signature only when the secret is set. Until it is, the app refuses Stripe's webhooks with a 403 and an error in the log (`app/Listeners/RefuseUnsignedStripeWebhooks.php`), and the Billing page sells nothing.
 
-The prices people see (`$29/mo`) are text in `config/packstub-features.php`. Keep them in step with your Stripe prices. Read more in the [Laravel Cashier docs](https://laravel.com/docs/billing).
+The amounts people see (`$29/mo`, `$290/yr`) are text next to each price in `config/billing.php`. Keep them in step with your Stripe prices. Read more in the [Laravel Cashier docs](https://laravel.com/docs/billing).
 
 ### Support logins
 
@@ -235,7 +240,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `ProjectLimitTest`: projects stay in their workspace, creating stops at the plan's limit and resumes on a bigger plan, a smaller plan keeps what is there.
 - `ProjectAccessTest`: what each role may do with a project, other workspaces' projects stay out of reach by URL and by action, and the list runs the same number of queries however long it is.
 - `BillingTest`: subscription webhooks (created, updated, each Stripe status, deleted, customer deleted) change the plan and the limits; signed and unsigned webhooks; unknown prices.
-- `BillingPageTest`: the Billing page by role, with and without Stripe keys, Checkout, switching plans, the customer portal, a past-due subscription and a payment that needs confirming.
+- `BillingPageTest`: the Billing page by role, with and without Stripe keys, monthly and yearly prices, Checkout, switching plans and intervals, the customer portal, a past-due subscription and a payment that needs confirming.
 - `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables.
 - `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping is scheduled.
 

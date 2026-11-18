@@ -107,6 +107,85 @@ it('offers the paid plans once Stripe is set up', function () {
         ->assertDontSee('Choose Free');
 });
 
+it('shows the monthly and yearly prices, and hides the switch when no plan is sold yearly', function () {
+    config()->set('cashier.secret', 'sk_test_123');
+
+    inWorkspace($this->workspace);
+
+    livewire(Billing::class)
+        ->assertSeeInOrder(['Monthly', 'Yearly'])
+        ->assertSee(['$29/mo', '$99/mo', '$0'])
+        ->assertDontSee('$290/yr')
+        ->set('interval', 'yearly')
+        ->assertSee(['$290/yr', '$990/yr', '$0'])
+        ->assertDontSee('$29/mo')
+        // Asked for an interval nothing is sold at, the page stays on monthly.
+        ->set('interval', 'weekly')
+        ->assertSee('$29/mo');
+
+    config()->set('billing.plans.pro.yearly.price', null);
+    config()->set('billing.plans.business.yearly.price', null);
+
+    livewire(Billing::class)
+        ->assertDontSee('Yearly')
+        ->assertSee('$29/mo');
+});
+
+it('sends the customer to Stripe Checkout for the yearly price', function () {
+    $stripe = fakeStripe([
+        'GET /v1/customers/cus_test' => ['id' => 'cus_test', 'object' => 'customer'],
+        'POST /v1/checkout/sessions' => ['id' => 'cs_test', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/pay/cs_test'],
+    ]);
+
+    inWorkspace($this->workspace);
+
+    livewire(Billing::class)
+        ->set('interval', 'yearly')
+        ->assertSee('Choose Pro')
+        ->callAction(TestAction::make('subscribe')->arguments(['plan' => 'pro', 'interval' => 'yearly']))
+        ->assertRedirect('https://checkout.stripe.com/c/pay/cs_test');
+
+    expect($stripe->params['POST /v1/checkout/sessions']['line_items'][0]['price'])->toBe('price_pro_yearly');
+});
+
+it('puts a yearly subscriber on the plan, and opens Billing on the yearly prices', function () {
+    config()->set('cashier.secret', 'sk_test_123');
+
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro_yearly'))->assertOk();
+
+    expect($this->workspace->fresh()->plan)->toBe('pro');
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->assertSet('interval', 'yearly')
+        ->assertSee('$290/yr')
+        ->assertSee('Switch to Business')
+        ->assertDontSee('Switch to yearly billing');
+});
+
+it('moves a monthly subscription to yearly billing on the same plan', function () {
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro'))->assertOk();
+
+    $stripe = fakeStripe([
+        'POST /v1/subscriptions/sub_test' => stripeSubscription('price_pro_yearly'),
+        'GET /v1/subscriptions/sub_test' => stripeSubscription('price_pro_yearly'),
+    ]);
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->assertSet('interval', 'monthly')
+        ->set('interval', 'yearly')
+        ->assertSee('Switch to yearly billing')
+        ->callAction(TestAction::make('changePlan')->arguments(['plan' => 'pro', 'interval' => 'yearly']))
+        ->assertNotified("You're on the Pro plan");
+
+    expect($stripe->params['POST /v1/subscriptions/sub_test']['items'][0]['price'])->toBe('price_pro_yearly')
+        ->and($this->workspace->currentSubscription()->stripe_price)->toBe('price_pro_yearly')
+        ->and($this->workspace->fresh()->plan)->toBe('pro');
+});
+
 it('sends the customer to Stripe Checkout for the price of the plan', function () {
     $stripe = fakeStripe([
         'GET /v1/customers/cus_test' => ['id' => 'cus_test', 'object' => 'customer'],
@@ -304,13 +383,37 @@ it('maps Stripe prices to plans and back', function (?string $price, ?string $pl
 })->with([
     'the Pro price' => ['price_pro', 'pro'],
     'the Business price' => ['price_business', 'business'],
+    'the yearly Pro price' => ['price_pro_yearly', 'pro'],
+    'the yearly Business price' => ['price_business_yearly', 'business'],
     'a price no plan has' => ['price_yearly', null],
     'an empty price' => ['', null],
     'no price' => [null, null],
 ]);
 
+it('knows the interval each price bills at', function (?string $price, ?string $interval) {
+    expect(StripePrices::interval($price))->toBe($interval);
+})->with([
+    'monthly' => ['price_pro', 'monthly'],
+    'yearly' => ['price_business_yearly', 'yearly'],
+    'a price no plan has' => ['price_weekly', null],
+    'no price' => [null, null],
+]);
+
+it('sells a plan monthly only when it has no yearly price', function () {
+    config()->set('billing.plans.pro.yearly.price', null);
+
+    expect(StripePrices::for('pro', 'yearly'))->toBeNull()
+        ->and(StripePrices::amount('pro', 'yearly'))->toBeNull()
+        ->and(StripePrices::for('business', 'yearly'))->toBe('price_business_yearly')
+        ->and(StripePrices::intervals())->toBe(['monthly', 'yearly']);
+
+    config()->set('billing.plans.business.yearly.price', '');
+
+    expect(StripePrices::intervals())->toBe(['monthly']);
+});
+
 it('sells only the plans that have a price', function () {
-    config()->set('billing.prices.business', '');
+    config()->set('billing.plans.business.monthly.price', '');
 
     expect(StripePrices::for('pro'))->toBe('price_pro')
         ->and(StripePrices::for('business'))->toBeNull()

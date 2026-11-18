@@ -32,8 +32,10 @@
         <env name="STRIPE_KEY" value=""/>
         <env name="STRIPE_SECRET" value=""/>
         <env name="STRIPE_WEBHOOK_SECRET" value=""/>
-        <env name="STRIPE_PRICE_PRO" value="price_pro"/>
-        <env name="STRIPE_PRICE_BUSINESS" value="price_business"/>
+        <env name="STRIPE_PRICE_PRO_MONTHLY" value="price_pro"/>
+        <env name="STRIPE_PRICE_PRO_YEARLY" value="price_pro_yearly"/>
+        <env name="STRIPE_PRICE_BUSINESS_MONTHLY" value="price_business"/>
+        <env name="STRIPE_PRICE_BUSINESS_YEARLY" value="price_business_yearly"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

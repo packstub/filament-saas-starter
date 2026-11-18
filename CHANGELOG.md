@@ -16,6 +16,7 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - Members, invitations by e-mail or link, and the roles Owner, Admin and Member, with invitation e-mails on the queue
 - Plans (Free, Pro, Business) with limits on projects and seats, a Your plan page, and overrides per workspace
 - Stripe billing with Checkout and the customer portal; the workspace is the customer and the webhook sets its plan
+- Monthly and yearly prices per plan, with a switch on the Billing page and a move to yearly billing on the same plan
 - Past-due and unfinished payments handled on the Billing page, and a customer deleted in Stripe returns the workspace to the Free plan
 - Unsigned Stripe webhooks refused in production
 - An admin panel with users, workspaces, feature flags and Change plan

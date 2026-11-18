@@ -125,7 +125,8 @@ function postSignedStripeEvent(array $event, string $secret): TestResponse
  * Stripe's API, answered by the test instead of Stripe. Give the answer to
  * every call the app is expected to make, keyed like `POST /v1/checkout/sessions`;
  * an answer with an `error` key is sent as a failed request. A call without
- * an answer fails the test. The calls made are in `->requests`.
+ * an answer fails the test. The calls made are in `->requests`, the
+ * parameters of the last call of each kind in `->params`.
  *
  * @param  array<string, array<string, mixed>>  $responses
  */
@@ -138,11 +139,15 @@ function fakeStripe(array $responses = []): object
         /** @var list<string> */
         public array $requests = [];
 
+        /** @var array<string, array<string, mixed>> */
+        public array $params = [];
+
         public function __construct(private array $responses) {}
 
         public function request($method, $absUrl, $headers, $params, $hasFile, $apiMode = 'v1', $maxNetworkRetries = null)
         {
             $this->requests[] = $request = strtoupper($method).' '.parse_url($absUrl, PHP_URL_PATH);
+            $this->params[$request] = $params;
 
             $response = $this->responses[$request] ?? throw new LogicException("The test gave no answer for the Stripe call [{$request}].");
 

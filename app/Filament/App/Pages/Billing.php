@@ -41,6 +41,9 @@ class Billing extends Page
 
     protected string $view = 'filament.app.pages.billing';
 
+    /** Monthly or yearly: which prices the plan cards show. */
+    public string $interval = 'monthly';
+
     public static function canAccess(): bool
     {
         $workspace = Filament::getTenant();
@@ -50,6 +53,9 @@ class Billing extends Page
 
     public function mount(): void
     {
+        // A yearly subscriber sees the yearly prices first.
+        $this->interval = $this->subscribedInterval() ?? StripePrices::intervals()[0] ?? 'monthly';
+
         // Stripe Checkout sends people back here; the plan itself changes when the webhook arrives.
         if (request()->query('checkout') === 'success') {
             Notification::make()
@@ -72,6 +78,7 @@ class Billing extends Page
 
     /**
      * The .env keys that still need a value before every plan can be sold.
+     * Monthly prices are needed; yearly ones are optional.
      *
      * @return list<string>
      */
@@ -81,10 +88,23 @@ class Billing extends Page
             'STRIPE_KEY' => blank(config('cashier.key')),
             'STRIPE_SECRET' => blank(config('cashier.secret')),
             'STRIPE_WEBHOOK_SECRET' => blank(config('cashier.webhook.secret')),
-            ...collect(config('billing.prices'))
-                ->mapWithKeys(fn (?string $price, string $plan): array => ['STRIPE_PRICE_'.strtoupper($plan) => blank($price)])
+            ...collect(config('billing.plans'))
+                ->mapWithKeys(fn (array $intervals, string $plan): array => ['STRIPE_PRICE_'.strtoupper($plan).'_MONTHLY' => StripePrices::for($plan, 'monthly') === null])
                 ->all(),
         ]));
+    }
+
+    /**
+     * The intervals to choose between, as interval => label; empty while
+     * every plan is sold at one interval only, so the switch stays hidden.
+     *
+     * @return array<string, string>
+     */
+    public function getIntervals(): array
+    {
+        $intervals = StripePrices::intervals();
+
+        return count($intervals) > 1 ? array_intersect_key(StripePrices::INTERVALS, array_flip($intervals)) : [];
     }
 
     /**
@@ -93,16 +113,35 @@ class Billing extends Page
     public function getPlans(): array
     {
         $current = Features::plan();
+        $interval = $this->selectedInterval();
+        $subscribed = $this->subscribedInterval();
 
         return array_values(array_map(fn (Plan $plan): array => [
             'key' => $plan->key,
             'label' => $plan->label,
             'description' => $plan->description,
-            'price' => $plan->price,
+            'price' => StripePrices::amount($plan->key, $interval) ?? $plan->price,
             'lines' => $this->describe($plan),
-            'current' => $plan->key === $current,
-            'sold' => StripePrices::for($plan->key) !== null,
+            // Pro billed monthly is not the current plan on the Yearly tab: it can be switched to.
+            'current' => $plan->key === $current && ($subscribed === null || $subscribed === $interval || StripePrices::for($plan->key, $interval) === null),
+            'sold' => StripePrices::for($plan->key, $interval) !== null,
         ], Features::plans()));
+    }
+
+    /**
+     * The interval the plan cards show: the one picked, if plans are sold at it.
+     */
+    public function selectedInterval(): string
+    {
+        return in_array($this->interval, StripePrices::intervals(), true) ? $this->interval : 'monthly';
+    }
+
+    /**
+     * The interval the workspace's subscription bills at, if it has one on a known price.
+     */
+    public function subscribedInterval(): ?string
+    {
+        return StripePrices::interval($this->workspace()->currentSubscription()?->stripe_price);
     }
 
     /**
@@ -187,7 +226,7 @@ class Billing extends Page
             ->label(fn (array $arguments): string => 'Choose '.Features::planDefinition($arguments['plan'])?->label)
             ->authorize(fn (): bool => static::canAccess())
             ->action(function (array $arguments) {
-                $price = StripePrices::for($arguments['plan']);
+                $price = StripePrices::for($arguments['plan'], $arguments['interval'] ?? 'monthly');
 
                 // Never a second subscription beside one that is running or waiting for a payment.
                 if (! $this->isConfigured() || $price === null || $this->hasSubscription()) {
@@ -212,12 +251,14 @@ class Billing extends Page
     public function changePlanAction(): Action
     {
         return Action::make('changePlan')
-            ->label(fn (array $arguments): string => 'Switch to '.Features::planDefinition($arguments['plan'])?->label)
+            ->label(fn (array $arguments): string => $arguments['plan'] === Features::plan()
+                ? 'Switch to '.strtolower(StripePrices::INTERVALS[$arguments['interval'] ?? 'monthly'] ?? '').' billing'
+                : 'Switch to '.Features::planDefinition($arguments['plan'])?->label)
             ->authorize(fn (): bool => static::canAccess())
             ->requiresConfirmation()
             ->modalDescription('Your subscription moves to this plan now, and Stripe prorates the difference.')
             ->action(function (array $arguments) {
-                $price = StripePrices::for($arguments['plan']);
+                $price = StripePrices::for($arguments['plan'], $arguments['interval'] ?? 'monthly');
 
                 if (! $this->isConfigured() || $price === null || ! $this->canSwitchPlans()) {
                     return null;
