@@ -8,4 +8,6 @@ Keeping them apart costs nothing today and makes a later move to a database per 
 - an indexed `workspace_id` with no database foreign key, and none to `users` either;
 - rows removed when the workspace is deleted: in `Workspace`'s `deleting` hook, or in a listener of `App\Events\WorkspaceDeleting`, which the hook dispatches inside the same transaction (a module does it that way, see `docs/modules`). Listen synchronously, never on the queue.
 
+`tests/Feature/TableRulesTest.php` checks the rules on every table: a table that is not listed there as central (accounts, memberships, billing, a package's own tables, each with the reason) must come from this folder and follow them. A module whose tables stay central adds them to that list.
+
 Add the table to `App\Support\DataExport::forWorkspace()` too, so an owner's export holds everything the workspace owns.

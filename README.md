@@ -341,6 +341,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `AccountTest`: deleting an account with its password, what goes with it and what stays, the only owner of a shared workspace, support logins.
 - `AuthenticationTest`: the password rules, signing in with and without an authenticator app, two-factor authentication required for the admin panel.
 - `WorkspaceTest`: reserved slugs, workspace settings by role, deleting a workspace from its settings (owners only, the typed name, Stripe first) and what that removes.
+- `TableRulesTest`: every table is either central (listed, with the reason) or a workspace's own one with its migration in `database/migrations/workspace`, a ULID key, an indexed `workspace_id` and no foreign key to a central table.
 - `PluginsTest`: the optional plugins listed in `app/Filament/Plugins.php` are registered on their panel.
 - `DeletionEventsTest`: the events a module listens to when a workspace or an account is deleted, inside the transaction, and never on the queue.
 - `OwnershipTest`: transferring ownership from the Members page, owners only, what the new owner may do, the Stripe billing contact following.

@@ -30,6 +30,7 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - Support logins: sign in as a customer from the admin panel and switch back, with every switch logged
 - Projects as the example resource: a status enum, a policy by role, a plan limit checked under a lock
 - Deleting a workspace cancels its Stripe subscription and removes its projects, subscriptions and overrides
+- A test that keeps every workspace-owned table ready for a database per workspace (ULID key, indexed `workspace_id`, no foreign keys to central tables), with a list of the central ones
 - One list of optional plugins per panel (`app/Filament/Plugins.php`), so adding a module's plugin is one line
 - `WorkspaceDeleting` and `AccountDeleting` events inside the deletion's transaction, so a module's rows go with the workspace or the person without editing the models
 - Delete workspace in Workspace settings, for owners, after typing the workspace's name
