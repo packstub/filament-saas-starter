@@ -138,6 +138,7 @@ A provider with both values set gets a **Continue with …** button under the si
 - Never during a [support login](#support-logins): both routes refuse while an admin is signed in as someone, so support can never leave a Google or GitHub account of their own on a customer's account.
 - Someone who signed up this way has no password (`users.password` is nullable) until they choose one on the Profile page, which then does not ask for a current one. **Disconnect** is refused for their last way to sign in, and **Delete account** asks them to type their e-mail address instead of a password.
 - Connected accounts are in `social_accounts`, a central table removed with the user, and in the personal data export.
+- **A copy made before 1.0.0** (from the template between 2026-11-17 and the release) has `users.password` as `NOT NULL`. To add Google and GitHub sign-up to it, add a migration with `$table->string('password')->nullable()->change();` on `users`. A new project needs nothing: the column is nullable in `create_users_table`.
 
 ### Members and invitations
 

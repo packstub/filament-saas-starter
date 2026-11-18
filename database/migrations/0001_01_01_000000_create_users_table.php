@@ -16,7 +16,8 @@ return new class extends Migration
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
+            // Null for someone who signed up with Google or GitHub and has not chosen one.
+            $table->string('password')->nullable();
             $table->boolean('is_admin')->default(false);
             // Two-factor sign-in with an authenticator app (Filament), both encrypted by the User model.
             $table->text('app_authentication_secret')->nullable();

@@ -12,6 +12,7 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 
 - Sign-up, log-in, password reset and a profile page, with e-mail verification before the panel opens
 - Sign in and sign up with Google and GitHub once their keys are set, linked only to verified addresses, with connected accounts on the Profile page
+- **Upgrading:** a project created from the template before 1.0.0 needs `users.password` made nullable before using Google and GitHub sign-up; the README shows the one-line migration
 - Two-factor authentication with an authenticator app: optional for customers, required for the admin panel
 - Password rules set in one place, longer and checked against known leaks in production
 - Workspaces as tenants: one per sign-up, as many as a person likes, everything in the panel scoped to the current one
