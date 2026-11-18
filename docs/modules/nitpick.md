@@ -145,7 +145,8 @@ it('forgets the theme of a deleted workspace and of a deleted account', function
     $owner->deleteAccount();
 
     expect(DB::table('nitpick_panel_themes')->pluck('tenant_id')->all())->toBe([(string) $other->id])
-        ->and(DB::table('nitpick_theme_preferences')->where('user_id', $owner->id)->exists())->toBeFalse();
+        ->and(DB::table('nitpick_theme_preferences')->where('user_id', $owner->id)->exists())->toBeFalse()
+        ->and(rowsLeftOf($workspace))->toBe([]);
 });
 ```
 
