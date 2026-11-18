@@ -4,6 +4,7 @@ namespace App\Filament\App\Pages;
 
 use App\Billing\StripePrices;
 use App\Models\Workspace;
+use App\Support\Pricing;
 use BackedEnum;
 use Carbon\CarbonInterface;
 use Filament\Actions\Action;
@@ -123,7 +124,7 @@ class Billing extends Page
             'label' => $plan->label,
             'description' => $plan->description,
             'price' => StripePrices::amount($plan->key, $interval) ?? $plan->price,
-            'lines' => $this->describe($plan),
+            'lines' => Pricing::includes($plan),
             // Pro billed monthly is not the current plan on the Yearly tab: it can be switched to.
             'current' => $plan->key === $current && ($subscribed === null || $subscribed === $interval || StripePrices::for($plan->key, $interval) === null),
             'sold' => StripePrices::for($plan->key, $interval) !== null,
@@ -145,28 +146,6 @@ class Billing extends Page
     public function subscribedInterval(): ?string
     {
         return StripePrices::interval($this->workspace()->currentSubscription()?->stripe_price);
-    }
-
-    /**
-     * What a plan includes, one line per feature: "50 projects", "Unlimited seats", "Priority support".
-     *
-     * @return list<string>
-     */
-    protected function describe(Plan $plan): array
-    {
-        $lines = [];
-
-        foreach (Features::features() as $feature) {
-            $value = $feature->cast($plan->has($feature->key) ? $plan->value($feature->key) : $feature->default);
-
-            if ($feature->isLimit()) {
-                $lines[] = ($value ?? 'Unlimited').' '.($feature->unit ?? $feature->label);
-            } elseif ($value) {
-                $lines[] = $feature->label;
-            }
-        }
-
-        return $lines;
     }
 
     protected function getHeaderActions(): array
