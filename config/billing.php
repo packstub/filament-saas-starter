@@ -53,6 +53,13 @@ return [
     | by itself when the trial ends. A workspace that has had a subscription
     | before starts paying straight away. 0 turns trials off.
     |
+    | The trial is per workspace, on purpose and simple: someone can get
+    | another one by creating a new workspace, and Cashier removes the
+    | subscription rows of a customer deleted in Stripe, so that workspace
+    | qualifies again. Stripe still asks for a card each time. To allow one
+    | trial per person, check every workspace the owner owns in
+    | Workspace::trialDaysOnOffer(), or keep a `trial_used_at` on the user.
+    |
     */
 
     'trial_days' => (int) env('BILLING_TRIAL_DAYS', 14),
