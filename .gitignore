@@ -28,3 +28,8 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+# Written by `php artisan boost:install` for each coding agent; the sources are in .ai/.
+/.agents/skills
+/.claude/skills
+/.mcp.json
+/opencode.json

@@ -358,11 +358,28 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `ApiTokenTest`: the API stays inside the token's workspace (lists, by id, creating), validation, the plan's project limit, plans without API access, abilities, missing, wrong, revoked and expired tokens, no browser sessions, the rate limit per token; the API tokens page by role, creating a token shown once, revoking, other workspaces' tokens, the upgrade on the Free plan, deleting a workspace.
 - `RevenueMetricsTest`: MRR from monthly, yearly and per-seat prices, what is left out (trials, ended, unknown prices), churn (trials that never paid, cancellations not over yet, the base at the start of the window), plans, sign-ups per day, plan changes, the cache, the dashboard for admins only, no calls to Stripe.
 - `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables, the Activity of every workspace.
+- `AgentGuidelinesTest`: every file, class and method that `AGENTS.md` and the guidelines in `.ai` name exists.
 - `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping (invitations, overrides, the audit log, expired API tokens) is scheduled.
 
 `tests/Unit/ArchTest.php` holds the architecture tests: Pest's `php`, `security` and `laravel` presets and a few rules of the kit's own.
 
 The webhook tests post Stripe's payloads to the app, and `fakeStripe()` in `tests/Pest.php` answers the calls the app makes to Stripe, so the suite needs no Stripe account. `.github/workflows/tests.yml` runs it on PHP 8.3, 8.4 and 8.5.
+
+### Coding agents
+
+The kit is ready for Claude Code, Cursor, Codex and the other coding agents:
+
+- `AGENTS.md` (and `CLAUDE.md`, a link to it) maps the code and lists the conventions.
+- `.ai/guidelines` explains the parts an agent is most likely to get wrong: the architecture, the rules for a workspace's tables, billing, testing, how to add a resource, a plan limit or a module, and a list of what never to do.
+- `.ai/skills/adding-a-workspace-resource` walks an agent through a new kind of record from the migration to the tests.
+
+[Laravel Boost](https://laravel.com/docs/boost) is installed as a dev dependency. Run it once and pick your agents:
+
+```bash
+php artisan boost:install
+```
+
+It adds Boost's MCP server (the database schema, read-only queries, the logs, a search of the Laravel docs for the versions you have installed), Laravel's own guidelines and skills, and copies the guidelines and skills from `.ai` into each agent's files. Your text in `AGENTS.md` stays; Boost writes inside its own `<laravel-boost-guidelines>` block. The files it generates for each agent (`.mcp.json`, `.claude/skills`, `.agents/skills`, `opencode.json`) are in `.gitignore`; commit `boost.json` if your team should share the same setup. After `composer update`, run `php artisan boost:update`. Edit the sources in `.ai`, never the copies.
 
 ## Optional modules
 

@@ -43,3 +43,9 @@ php artisan migrate:fresh --seed
 - App code reads memberships through the `Teams` facade (`Teams::ownersOf()`, `membersOf()`, `teamsOf()`), not through the traits' relations, and never queries a workspace's own tables from the admin panel. The one exception is the counts of the admin tables, which need a relation name: `withCount('members')` and `withCount('joinedTeams')`.
 - The audit log (`audit_events`) is central on purpose, like billing and `account_switches`: a ULID key, `workspace_id` and names kept as they were, no foreign keys. Record new kinds of events through `AuditEvent::record()`; never edit an entry.
 - Never queue a listener of Filament Teams' events: they carry whole `User` models without `SerializesModels`, so the queue would store password hashes and remember tokens. Listen synchronously and dispatch a job that holds the workspace (its id) instead; `QueuedJobsTest` checks the stored payloads.
+
+## Guidelines and Laravel Boost
+
+The rules above, with the how-tos, are in `.ai/guidelines` (architecture, workspace data, billing, testing, extending, never do this) and the skill `.ai/skills/adding-a-workspace-resource`. Read the guideline for the area you change before planning. `AgentGuidelinesTest` checks that every file and class they name exists.
+
+Laravel Boost is a dev dependency: `php artisan boost:install` adds its MCP server (database schema, queries, logs, the Laravel docs search) and copies those guidelines and skills, with Laravel's own, into each coding agent's files. It keeps what is written outside its `<laravel-boost-guidelines>` block of this file. Re-run `php artisan boost:update` after `composer update`, and edit `.ai/`, never the generated copies.
