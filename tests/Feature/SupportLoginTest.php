@@ -1,7 +1,10 @@
 <?php
 
+use App\Filament\Admin\Resources\AuditEvents\AuditEventResource;
+use App\Filament\Admin\Resources\AuditEvents\Pages\ListAuditEvents;
 use App\Filament\Admin\Resources\Users\Pages\ManageUsers;
 use App\Filament\Admin\Resources\Workspaces\Pages\ManageWorkspaces;
+use App\Models\AuditEvent;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Filament\Actions\Testing\TestAction;
@@ -94,19 +97,19 @@ it('shows the demo accounts as one-click logins in the local environment only', 
 
 it('sends a guest to the sign-in page of the admin panel', function (string $page) {
     get($page)->assertRedirect('/admin/login');
-})->with(['/admin', '/admin/users', '/admin/workspaces', '/admin/feature-flags', '/admin/feature-overrides']);
+})->with(['/admin', '/admin/users', '/admin/workspaces', '/admin/feature-flags', '/admin/feature-overrides', '/admin/activity']);
 
 it('keeps every page of the admin panel from customers', function (string $page) {
     $workspace = workspace();
 
     actingAs(Teams::ownersOf($workspace)->first())->get($page)->assertForbidden();
-})->with(['/admin', '/admin/users', '/admin/workspaces', '/admin/feature-flags', '/admin/feature-overrides']);
+})->with(['/admin', '/admin/users', '/admin/workspaces', '/admin/feature-flags', '/admin/feature-overrides', '/admin/activity']);
 
 it('opens every page of the admin panel to an admin', function (string $page) {
     workspace('pro');
 
     actingAs(admin())->get($page)->assertOk();
-})->with(['/admin/users', '/admin/workspaces', '/admin/feature-flags', '/admin/feature-overrides']);
+})->with(['/admin/users', '/admin/workspaces', '/admin/feature-flags', '/admin/feature-overrides', '/admin/activity']);
 
 it('keeps the admin panel closed while an admin is signed in as a customer', function () {
     $customer = Teams::ownersOf(workspace())->first();
@@ -177,4 +180,49 @@ it('asks the database the same number of questions however many rows the admin t
 })->with([
     'workspaces' => [ManageWorkspaces::class],
     'users' => [ManageUsers::class],
+    'activity' => [ListAuditEvents::class],
 ]);
+
+it('lists the activity of every workspace, deleted ones included, and of one from its row', function () {
+    $acme = workspace('pro');
+    memberOf($acme, 'member');
+    $gone = workspace('business');
+    $goneName = $gone->name;
+    $gone->delete();
+
+    inAdminPanel();
+
+    $acmeEntries = AuditEvent::query()->where('workspace_id', $acme->id)->get();
+
+    livewire(ListAuditEvents::class)
+        ->assertCanSeeTableRecords($acmeEntries)
+        ->assertSee("Deleted the workspace {$goneName}")
+        ->searchTable($goneName)
+        ->assertCanNotSeeTableRecords($acmeEntries);
+
+    livewire(ManageWorkspaces::class)
+        ->assertActionHasUrl(TestAction::make('activity')->table($acme), AuditEventResource::getUrl('index', ['filters' => ['workspace' => ['value' => $acme->id]]]));
+
+    livewire(ListAuditEvents::class)
+        ->filterTable('workspace', $acme->id)
+        ->assertCanSeeTableRecords($acmeEntries)
+        ->assertCanNotSeeTableRecords(AuditEvent::query()->where('workspace_id', $gone->id)->get());
+});
+
+it('shows which entries were made during a support login', function () {
+    $workspace = workspace('pro');
+    $customer = Teams::ownersOf($workspace)->first();
+
+    $admin = inAdminPanel();
+    livewire(ManageUsers::class)->callAction(TestAction::make('impersonate')->table($customer));
+    memberOf($workspace, 'member');
+    $during = AuditEvent::query()->latest('id')->first();
+
+    inAdminPanel($admin);
+
+    livewire(ListAuditEvents::class)
+        ->assertSee("{$customer->name} (support: {$admin->name})")
+        ->filterTable('support_logins')
+        ->assertCanSeeTableRecords([$during])
+        ->assertCountTableRecords(1);
+});

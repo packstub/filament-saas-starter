@@ -12,7 +12,7 @@ Free and open source, under the MIT license.
 - **[Plans and limits](#plans-and-limits)**: Free, Pro and Business in one config file, a **Your plan** page with usage, and overrides for a single workspace.
 - **[Billing](#billing-with-stripe)**: Stripe Checkout and the customer portal through Laravel Cashier, monthly and yearly prices, a free trial and optional per-seat pricing, with a webhook that puts the workspace on the plan it pays for.
 - **[Audit log](#audit-log)**: who joined, left, changed role, was invited or took over a workspace, and every plan change, on an Activity page for owners and admins.
-- **[Support logins](#support-logins)**: an admin panel where you sign in as a customer to see what they see, with a log of every switch.
+- **[Support logins](#support-logins)**: an admin panel where you sign in as a customer to see what they see, with a log of every switch and every workspace's activity.
 - **[One complete example](#the-projects-pattern)**: Projects, scoped to the workspace, guarded by a policy and counted against a plan limit.
 - **[Tests](#tests)**: a Pest suite over all of the above, and GitHub Actions to run it.
 
@@ -203,13 +203,13 @@ The amounts people see (`$29/mo`, `$290/yr`) are text next to each price in `con
 
 ### Audit log
 
-Every workspace keeps a log of what happened in it: members who joined, left or changed role, invitations sent and accepted, ownership transfers, plan changes (from Stripe, from the admin panel or from the code) and the workspace's deletion. **Activity**, in the `app` panel, shows it to owners and admins, with a filter by kind.
+Every workspace keeps a log of what happened in it: members who joined, left or changed role, invitations sent and accepted, ownership transfers, plan changes (from Stripe, from the admin panel or from the code) and the workspace's deletion. **Activity**, in the `app` panel, shows it to owners and admins, with a filter by kind. In `/admin`, **Activity** lists every workspace's entries, deleted workspaces included, with filters by kind, by workspace and for what happened during a support login; **Activity** on a row of **Workspaces** opens that workspace's entries.
 
 - `app/Models/AuditEvent.php` is an entry, and `AuditEvent::record($workspace, AuditEventType::…, [...])` writes one. Its kinds, with their labels, colours and icons, are `app/Enums/AuditEventType.php`.
 - `app/Listeners/RecordWorkspaceActivity.php` turns Filament Teams' membership events into entries; `Workspace::changePlan()` and the model's `deleted` hook write the plan changes and the deletion.
 - An entry names who did it, or "System" for a webhook or a command. During a [support login](#support-logins) it also names the admin behind it, so the customer's log shows "Ethan Park (support: Sam Carter)".
 - People and workspaces are kept by id and by name as they were, with no foreign keys, so an entry still reads well after either is deleted. Deleting a workspace removes its entries and writes one "Workspace deleted" entry, which stays for the back office.
-- The table is central, next to billing and the support-login log: it keeps the entry of a deleted workspace, so it stays on the main database if workspaces get databases of their own.
+- The table is central, next to billing and the support-login log: the admin panel reads it across workspaces and it keeps the entry of a deleted workspace, so it stays on the main database if workspaces get databases of their own.
 - Entries older than 365 days (`AUDIT_RETENTION_DAYS`, `config/audit.php`) are removed by `model:prune`, scheduled daily in `routes/console.php`. Entries hold names and e-mail addresses, so keep them no longer than your privacy policy says.
 - A workspace's entries are part of its data export.
 
@@ -276,7 +276,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `SeatBillingTest`: per-seat plans: Checkout with a seat per member, the quantity following members who join, leave or accept an invitation, flat plans left alone, Stripe errors, a quantity put right by the next webhook.
 - `BillingPageTest`: the Billing page by role, with and without Stripe keys, monthly and yearly prices, the free trial, Checkout, switching plans and intervals, the customer portal, a past-due subscription and a payment that needs confirming.
 - `AuditLogTest`: what is recorded and by whom (a support login included), plan changes from Stripe and from the admin panel, a deleted workspace and deleted people, pruning, the Activity page by role and by workspace.
-- `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables.
+- `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables, the Activity of every workspace.
 - `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping (invitations, overrides, the audit log) is scheduled.
 
 `tests/Unit/ArchTest.php` holds the architecture tests: Pest's `php`, `security` and `laravel` presets and a few rules of the kit's own.
