@@ -5,6 +5,7 @@ namespace App\Filament\App\Pages;
 use App\Billing\StripePrices;
 use App\Models\Workspace;
 use BackedEnum;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
@@ -233,8 +234,11 @@ class Billing extends Page
                     return null;
                 }
 
+                $trialDays = $this->workspace()->trialDaysOnOffer();
+
                 return $this->toStripe(fn (): string => $this->workspace()
                     ->newSubscription('default', $price)
+                    ->when($trialDays > 0, fn ($subscription) => $subscription->trialDays($trialDays))
                     ->allowPromotionCodes()
                     ->checkout([
                         'success_url' => static::getUrl(['checkout' => 'success']),
@@ -290,6 +294,24 @@ class Billing extends Page
     public function hasSubscription(): bool
     {
         return $this->workspace()->currentSubscription() !== null;
+    }
+
+    /**
+     * The free trial a checkout would start with, in days (0 for none).
+     */
+    public function trialDaysOnOffer(): int
+    {
+        return $this->hasSubscription() ? 0 : $this->workspace()->trialDaysOnOffer();
+    }
+
+    /**
+     * When the trial of the running subscription ends, while it is on one.
+     */
+    public function trialEndsAt(): ?CarbonInterface
+    {
+        $subscription = $this->workspace()->currentSubscription();
+
+        return $subscription?->onTrial() ? $subscription->trial_ends_at : null;
     }
 
     /**

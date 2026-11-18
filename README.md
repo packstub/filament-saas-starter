@@ -10,7 +10,7 @@ Free and open source, under the MIT license.
 - **[Workspaces](#workspaces)**: every sign-up gets one, a person can belong to several, and everything in the panel is scoped to the current one.
 - **[Team members](#members-and-invitations)**: invitations by e-mail or link, the roles Owner, Admin and Member, and seats counted against the plan.
 - **[Plans and limits](#plans-and-limits)**: Free, Pro and Business in one config file, a **Your plan** page with usage, and overrides for a single workspace.
-- **[Billing](#billing-with-stripe)**: Stripe Checkout and the customer portal through Laravel Cashier, monthly and yearly prices, with a webhook that puts the workspace on the plan it pays for.
+- **[Billing](#billing-with-stripe)**: Stripe Checkout and the customer portal through Laravel Cashier, monthly and yearly prices and a free trial, with a webhook that puts the workspace on the plan it pays for.
 - **[Support logins](#support-logins)**: an admin panel where you sign in as a customer to see what they see, with a log of every switch.
 - **[One complete example](#the-projects-pattern)**: Projects, scoped to the workspace, guarded by a policy and counted against a plan limit.
 - **[Tests](#tests)**: a Pest suite over all of the above, and GitHub Actions to run it.
@@ -172,6 +172,7 @@ In production, `php artisan cashier:webhook` creates the webhook endpoint in Str
 How a payment becomes a plan:
 
 - A plan's button opens Stripe Checkout for the price in `config/billing.php`. A workspace that already pays gets **Switch to** instead, which moves its subscription to the other price.
+- A workspace's first subscription starts with a free trial: 14 days, set by `BILLING_TRIAL_DAYS` (`trial_days` in `config/billing.php`, 0 turns it off). Checkout still takes the card, so the plan carries on when the trial ends; the Billing page and the dashboard say when that is. A workspace that has had a subscription before pays from the first day. If the trial ends without a payment, the webhook puts the workspace back on the Free plan.
 - **Monthly** and **Yearly** above the plans switch the prices the cards show, once any plan has a yearly price. Both prices of a plan map back to it, so a yearly subscriber gets the same limits as a monthly one, and a monthly subscriber can move to yearly billing on the same plan.
 - Stripe calls `/stripe/webhook`. Cashier stores the subscription, then `app/Listeners/SyncWorkspacePlanFromStripe.php` puts the workspace on the plan of that price.
 - When the subscription ends, the same listener puts the workspace back on the Free plan. Its members and projects stay, but inviting and creating stop at the Free limits. The same happens when you delete the customer in Stripe.
@@ -239,8 +240,8 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `InvitationTest`: inviting from the Members page, signing up through an invitation, accepting with an existing account, an unverified account that claims an invited address, expired invitations, the seat limit.
 - `ProjectLimitTest`: projects stay in their workspace, creating stops at the plan's limit and resumes on a bigger plan, a smaller plan keeps what is there.
 - `ProjectAccessTest`: what each role may do with a project, other workspaces' projects stay out of reach by URL and by action, and the list runs the same number of queries however long it is.
-- `BillingTest`: subscription webhooks (created, updated, each Stripe status, deleted, customer deleted) change the plan and the limits; signed and unsigned webhooks; unknown prices.
-- `BillingPageTest`: the Billing page by role, with and without Stripe keys, monthly and yearly prices, Checkout, switching plans and intervals, the customer portal, a past-due subscription and a payment that needs confirming.
+- `BillingTest`: subscription webhooks (created, updated, each Stripe status, a trial and its end, deleted, customer deleted) change the plan and the limits; signed and unsigned webhooks; unknown prices.
+- `BillingPageTest`: the Billing page by role, with and without Stripe keys, monthly and yearly prices, the free trial, Checkout, switching plans and intervals, the customer portal, a past-due subscription and a payment that needs confirming.
 - `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables.
 - `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping is scheduled.
 

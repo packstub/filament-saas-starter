@@ -34,4 +34,18 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Free trial
+    |--------------------------------------------------------------------------
+    |
+    | Days a workspace's first subscription runs before the first charge.
+    | Stripe Checkout still asks for a card, so the subscription carries on
+    | by itself when the trial ends. A workspace that has had a subscription
+    | before starts paying straight away. 0 turns trials off.
+    |
+    */
+
+    'trial_days' => (int) env('BILLING_TRIAL_DAYS', 14),
+
 ];

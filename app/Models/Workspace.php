@@ -179,19 +179,32 @@ class Workspace extends Model
     }
 
     /**
+     * The free trial a new subscription would start with, in days: the
+     * configured trial for a workspace that has never had a subscription,
+     * none for one that has (one trial per workspace).
+     */
+    public function trialDaysOnOffer(): int
+    {
+        $days = (int) config('billing.trial_days');
+
+        return $days > 0 && ! $this->subscriptions()->exists() ? $days : 0;
+    }
+
+    /**
      * Match the plan to the Stripe subscription.
      *
      * The plan of its price while the subscription is active, on trial, in
      * its grace period after a cancellation, or past due: Stripe retries a
      * failed payment for days, and the customer keeps what they had while it
-     * does. The default plan once it has ended, was never paid, or Stripe
-     * gave up collecting (`unpaid`).
+     * does. The default plan once it has ended, was never paid, Stripe gave
+     * up collecting (`unpaid`), or Stripe paused it because a trial ended
+     * without a card (`paused`, which Cashier counts as active).
      */
     public function syncPlanFromSubscription(): void
     {
         $subscription = $this->currentSubscription();
 
-        if (! $subscription || ! ($subscription->valid() || $subscription->pastDue())) {
+        if (! $subscription || $subscription->stripe_status === 'paused' || ! ($subscription->valid() || $subscription->pastDue())) {
             $this->changePlan(config('packstub-features.default_plan'));
 
             return;

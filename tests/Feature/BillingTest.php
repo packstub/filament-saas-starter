@@ -50,7 +50,39 @@ it('follows the status of the subscription', function (string $status, string $p
     'unpaid' => ['unpaid', 'free'],
     'first payment not finished' => ['incomplete', 'free'],
     'first payment never made' => ['incomplete_expired', 'free'],
+    // A trial that ended without a card, when Stripe is set to pause instead of cancel.
+    'paused' => ['paused', 'free'],
 ]);
+
+it('puts a workspace on the plan for its free trial, and keeps it there once the trial is paid for', function () {
+    $trialEnd = now()->addDays(14)->startOfSecond();
+
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro', 'trialing', ['trial_end' => $trialEnd->getTimestamp()]))->assertOk();
+
+    $subscription = $this->workspace->currentSubscription();
+
+    expect($this->workspace->fresh()->plan)->toBe('pro')
+        ->and($subscription->onTrial())->toBeTrue()
+        ->and($subscription->trial_ends_at->equalTo($trialEnd))->toBeTrue();
+
+    // The trial ran out and the card was charged.
+    $this->travelTo($trialEnd->copy()->addDay());
+    postJson('/stripe/webhook', stripeSubscriptionEvent('updated', $this->workspace, 'price_pro', 'active', ['trial_end' => $trialEnd->getTimestamp()]))->assertOk();
+
+    expect($this->workspace->fresh()->plan)->toBe('pro')
+        ->and($this->workspace->currentSubscription()->onTrial())->toBeFalse();
+});
+
+it('goes back to the free plan when a trial ends without a payment', function () {
+    $trialEnd = now()->addDays(14);
+
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro', 'trialing', ['trial_end' => $trialEnd->getTimestamp()]))->assertOk();
+
+    $this->travelTo($trialEnd->copy()->addDay());
+    postJson('/stripe/webhook', stripeSubscriptionEvent('deleted', $this->workspace, 'price_pro', 'canceled', ['trial_end' => $trialEnd->getTimestamp()]))->assertOk();
+
+    expect($this->workspace->fresh()->plan)->toBe('free');
+});
 
 it('stays on the free plan until a first payment succeeds', function () {
     postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro', 'incomplete'))->assertOk();

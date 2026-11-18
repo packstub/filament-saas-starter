@@ -30,6 +30,14 @@
         </x-filament::section>
     @endif
 
+    @if ($this->isConfigured() && $this->trialEndsAt())
+        <x-filament::section icon="heroicon-o-gift" icon-color="primary" heading="Your free trial ends on {{ $this->trialEndsAt()->toFormattedDateString() }}">
+            <x-slot name="description">
+                Your card is charged then, and the plan carries on. Cancel any time before under "Manage billing".
+            </x-slot>
+        </x-filament::section>
+    @endif
+
     @if ($this->isConfigured() && $this->needsFirstPayment())
         <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning" heading="Your payment is not finished yet">
             <x-slot name="description">
@@ -73,6 +81,10 @@
 
                     @if ($plan['price'])
                         <div style="font-size:1.875rem;font-weight:700;line-height:1">{{ $plan['price'] }}</div>
+                    @endif
+
+                    @if ($plan['sold'] && $this->isConfigured() && $this->trialDaysOnOffer())
+                        <x-filament::badge color="info" style="align-self:flex-start">{{ $this->trialDaysOnOffer() }}-day free trial</x-filament::badge>
                     @endif
 
                     @if ($plan['description'])

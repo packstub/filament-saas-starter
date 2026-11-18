@@ -82,7 +82,7 @@ function inAdminPanel(?User $user = null): User
 /**
  * A Stripe subscription webhook as Cashier receives it.
  */
-function stripeSubscriptionEvent(string $type, Workspace $workspace, string $price, string $status = 'active'): array
+function stripeSubscriptionEvent(string $type, Workspace $workspace, string $price, string $status = 'active', array $extra = []): array
 {
     return [
         'id' => 'evt_'.fake()->uuid(),
@@ -101,6 +101,7 @@ function stripeSubscriptionEvent(string $type, Workspace $workspace, string $pri
                         'price' => ['id' => $price, 'product' => 'prod_test'],
                     ]],
                 ],
+                ...$extra,
             ],
         ],
     ];

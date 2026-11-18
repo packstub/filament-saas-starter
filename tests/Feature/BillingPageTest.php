@@ -186,6 +186,70 @@ it('moves a monthly subscription to yearly billing on the same plan', function (
         ->and($this->workspace->fresh()->plan)->toBe('pro');
 });
 
+it('starts a first subscription with the free trial', function () {
+    $stripe = fakeStripe([
+        'GET /v1/customers/cus_test' => ['id' => 'cus_test', 'object' => 'customer'],
+        'POST /v1/checkout/sessions' => ['id' => 'cs_test', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/pay/cs_test'],
+    ]);
+
+    inWorkspace($this->workspace);
+
+    livewire(Billing::class)
+        ->assertSee('14-day free trial')
+        ->callAction(TestAction::make('subscribe')->arguments(['plan' => 'pro', 'interval' => 'monthly']))
+        ->assertRedirect('https://checkout.stripe.com/c/pay/cs_test');
+
+    $trialEnd = $stripe->params['POST /v1/checkout/sessions']['subscription_data']['trial_end'];
+
+    expect($trialEnd)->toBeGreaterThanOrEqual(now()->addDays(14)->getTimestamp() - 5)
+        ->and($trialEnd)->toBeLessThanOrEqual(now()->addDays(14)->getTimestamp() + 5);
+});
+
+it('offers no second trial to a workspace that has had a subscription, nor any when trials are off', function (bool $hadSubscription, int $days) {
+    config()->set('billing.trial_days', $days);
+
+    if ($hadSubscription) {
+        postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro'))->assertOk();
+        postJson('/stripe/webhook', stripeSubscriptionEvent('deleted', $this->workspace, 'price_pro', 'canceled'))->assertOk();
+    }
+
+    $stripe = fakeStripe([
+        'GET /v1/customers/cus_test' => ['id' => 'cus_test', 'object' => 'customer'],
+        'POST /v1/checkout/sessions' => ['id' => 'cs_test', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/pay/cs_test'],
+    ]);
+
+    inWorkspace($this->workspace->fresh());
+
+    expect($this->workspace->fresh()->trialDaysOnOffer())->toBe(0);
+
+    livewire(Billing::class)
+        ->assertDontSee('free trial')
+        ->callAction(TestAction::make('subscribe')->arguments(['plan' => 'pro', 'interval' => 'monthly']))
+        ->assertRedirect('https://checkout.stripe.com/c/pay/cs_test');
+
+    expect($stripe->params['POST /v1/checkout/sessions']['subscription_data'])->not->toHaveKey('trial_end');
+})->with([
+    'had a subscription' => [true, 14],
+    'trials off' => [false, 0],
+]);
+
+it('says when the free trial ends, on the Billing page and the dashboard', function () {
+    config()->set('cashier.secret', 'sk_test_123');
+    $trialEnd = now()->addDays(10);
+
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro', 'trialing', ['trial_end' => $trialEnd->getTimestamp()]))->assertOk();
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->assertSee('Your free trial ends on '.$trialEnd->toFormattedDateString())
+        ->assertSee('Switch to Business')
+        ->assertDontSee('day free trial');
+
+    livewire(WorkspaceOverview::class)
+        ->assertSee('Trial ends '.$trialEnd->format('M j'));
+});
+
 it('sends the customer to Stripe Checkout for the price of the plan', function () {
     $stripe = fakeStripe([
         'GET /v1/customers/cus_test' => ['id' => 'cus_test', 'object' => 'customer'],
