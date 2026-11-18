@@ -364,6 +364,21 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 
 The webhook tests post Stripe's payloads to the app, and `fakeStripe()` in `tests/Pest.php` answers the calls the app makes to Stripe, so the suite needs no Stripe account. `.github/workflows/tests.yml` runs it on PHP 8.3, 8.4 and 8.5.
 
+## Optional modules
+
+The kit leaves out what only some products need. Each of these is a short recipe in [`docs/modules`](docs/modules/README.md): the `composer require` line, one line in `app/Filament/Plugins.php`, the migrations, a plan limit where one fits, what happens when a workspace or an account is deleted, a test to copy, and how to take it out again.
+
+| Recipe | What it adds |
+| --- | --- |
+| [Themes with Nitpick](docs/modules/nitpick.md) | Designed themes and an Appearance page in the app panel; owners set one for their workspace |
+| [Session Replay](docs/modules/session-replay.md) | Recordings of customer sessions, watched from `/admin` next to support logins |
+| [Workflows with Flow](docs/modules/flow.md) | Automations per workspace, with the number of workflows as a plan limit |
+| [Forms with Form Builder](docs/modules/form-builder.md) | Forms per workspace, hosted or embedded, with the number of forms as a plan limit |
+| [A Projects board with Kanban](docs/modules/kanban.md) | The Projects resource as a board by status (a beta package) |
+| [An AI assistant with credits](docs/modules/ai.md) | A chat assistant per workspace, paid for by monthly AI credits from the plan (needs the next releases of the AI packages) |
+
+Four things in the kit keep the recipes short: the plugin lists in `app/Filament/Plugins.php`, the `App\Events\WorkspaceDeleting` and `App\Events\AccountDeleting` events a module cleans up in, the one-value-per-line plans in `config/packstub-features.php`, and `TableRulesTest`, which makes each module say where its tables live.
+
 ## Going further
 
 ### A database per workspace

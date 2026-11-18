@@ -48,3 +48,4 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - Strict Eloquent models outside production, so an N+1 query fails while you develop
 - A Pest suite with architecture tests, and GitHub Actions for PHP 8.3, 8.4 and 8.5
 - Laid out for a database per workspace later, with Filament Tenancy
+- Recipes for optional modules in `docs/modules`: Nitpick themes, Session Replay watched from `/admin`, Flow workflows and Form Builder forms as plan limits, a Kanban board of projects, and an AI assistant paid for by monthly credits
