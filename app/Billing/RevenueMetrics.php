@@ -6,6 +6,8 @@ use App\Enums\AuditEventType;
 use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Number;
@@ -28,11 +30,14 @@ final class RevenueMetrics
     /** The Stripe statuses of a subscription that is paid for: active, or in Stripe's payment retries. */
     public const PAYING_STATUSES = ['active', 'past_due'];
 
+    /** Subscriptions that never started: their first payment was never made. */
+    public const NEVER_PAID_STATUSES = ['incomplete', 'incomplete_expired'];
+
     /**
      * Monthly recurring revenue in the currency's smallest unit (cents): every
      * paying subscription's price, a yearly one divided by 12, times its
-     * quantity on a per-seat plan. Trials are not revenue yet; a cancelled
-     * subscription counts until its paid period ends.
+     * quantity on a per-seat plan. Trials (Stripe status `trialing`) are not
+     * revenue yet; a cancelled subscription counts until its paid period ends.
      */
     public static function mrr(): int
     {
@@ -48,7 +53,7 @@ final class RevenueMetrics
     public static function mrrByPlan(): array
     {
         return self::remember('mrr-by-plan', function (): array {
-            $byPlan = self::paying()->groupBy(fn (Subscription $subscription): string => (string) StripePrices::plan($subscription->stripe_price));
+            $byPlan = self::payingByPrice()->groupBy(fn (object $row): string => (string) StripePrices::plan($row->stripe_price));
 
             return collect(config('billing.plans', []))
                 ->map(fn (array $plan, string $key): int => (int) round(($byPlan[$key] ?? collect())->sum(self::monthlyAmount(...))))
@@ -65,11 +70,14 @@ final class RevenueMetrics
     }
 
     /**
-     * Subscriptions being paid for now.
+     * Subscriptions being paid for now, on a price config/billing.php sells:
+     * the same subscriptions MRR is made of.
      */
     public static function activeSubscriptions(): int
     {
-        return self::remember('active', fn (): int => self::paying()->count());
+        return self::remember('active', fn (): int => (int) self::payingByPrice()
+            ->filter(fn (object $row): bool => StripePrices::plan($row->stripe_price) !== null)
+            ->sum('subscriptions'));
     }
 
     /**
@@ -84,26 +92,30 @@ final class RevenueMetrics
     }
 
     /**
-     * Subscriptions that ended in the last `$days` days: cancelled and past
-     * their paid period, or stopped by Stripe.
+     * Paying subscriptions that ended in the last `$days` days: cancelled and
+     * past their paid period, or stopped by Stripe. A trial that ended without
+     * a payment is not churn (it never paid), and a cancellation that takes
+     * effect later is not churn yet.
      */
     public static function churned(int $days = 30): int
     {
-        return self::remember("churned.{$days}", fn (): int => Subscription::query()
-            ->whereBetween('ends_at', [now()->subDays($days), now()])
-            ->count());
+        return self::remember("churned.{$days}", fn (): int => self::endedAfterPaying(now()->subDays($days))->count());
     }
 
     /**
-     * The share of the subscriptions paid for `$days` days ago that have
-     * ended since, as a percentage, or null with none to measure.
+     * Of the subscriptions that were paying `$days` days ago, the share that
+     * has ended since, as a percentage, or null with none to measure.
+     * Subscriptions that started within the window are left out of both sides.
      */
     public static function churnRate(int $days = 30): ?float
     {
-        $churned = self::churned($days);
-        $base = self::activeSubscriptions() + $churned;
+        return self::remember("churn-rate.{$days}", function () use ($days): ?float {
+            $start = now()->subDays($days);
+            $base = self::payingAt($start)->count();
+            $lost = self::endedAfterPaying($start)->where('created_at', '<=', $start)->count();
 
-        return $base === 0 ? null : round($churned / $base * 100, 1);
+            return $base === 0 ? null : round($lost / $base * 100, 1);
+        });
     }
 
     /**
@@ -166,34 +178,67 @@ final class RevenueMetrics
     }
 
     /**
-     * The subscription's share of a month, in cents. A price no plan is sold
-     * at counts as 0 (and the webhook has logged it already).
+     * A group of subscriptions on one price as a share of a month, in cents. A
+     * price no plan is sold at counts as 0 (and the webhook has logged it already).
      */
-    private static function monthlyAmount(Subscription $subscription): float
+    private static function monthlyAmount(object $row): float
     {
-        $plan = StripePrices::plan($subscription->stripe_price);
-        $interval = StripePrices::interval($subscription->stripe_price);
+        $plan = StripePrices::plan($row->stripe_price);
+        $interval = StripePrices::interval($row->stripe_price);
 
         if ($plan === null) {
             return 0;
         }
 
         $amount = (int) config("billing.plans.{$plan}.{$interval}.unit_amount", 0);
-        $quantity = StripePrices::perSeat($plan) ? max(1, (int) $subscription->quantity) : 1;
+        $units = StripePrices::perSeat($plan) ? (int) $row->seats : (int) $row->subscriptions;
 
-        return ($interval === 'yearly' ? $amount / 12 : $amount) * $quantity;
+        return ($interval === 'yearly' ? $amount / 12 : $amount) * $units;
     }
 
     /**
-     * @return Collection<int, Subscription>
+     * The subscriptions paid for now, added up per price in the database:
+     * how many there are and how many seats they hold.
+     *
+     * @return Collection<int, object{stripe_price: ?string, subscriptions: int, seats: int}>
      */
-    private static function paying(): Collection
+    private static function payingByPrice(): Collection
     {
         return Subscription::query()
+            ->toBase()
             ->whereIn('stripe_status', self::PAYING_STATUSES)
-            ->where(fn ($query) => $query->whereNull('trial_ends_at')->orWhere('trial_ends_at', '<=', now()))
             ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', now()))
-            ->get(['id', 'stripe_price', 'quantity']);
+            ->groupBy('stripe_price')
+            ->selectRaw('stripe_price, count(*) as subscriptions, sum(case when quantity is null or quantity < 1 then 1 else quantity end) as seats')
+            ->get();
+    }
+
+    /**
+     * Subscriptions that were paying at a moment: started, not yet ended, past any trial.
+     *
+     * @return Builder<Subscription>
+     */
+    private static function payingAt(CarbonInterface $moment): Builder
+    {
+        return Subscription::query()
+            ->whereNotIn('stripe_status', self::NEVER_PAID_STATUSES)
+            ->where('created_at', '<=', $moment)
+            ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', $moment))
+            ->where(fn ($query) => $query->whereNull('trial_ends_at')->orWhere('trial_ends_at', '<=', $moment));
+    }
+
+    /**
+     * Subscriptions that ended between a moment and now, after paying at least once:
+     * any trial they had was over before they ended.
+     *
+     * @return Builder<Subscription>
+     */
+    private static function endedAfterPaying(CarbonInterface $since): Builder
+    {
+        return Subscription::query()
+            ->whereNotIn('stripe_status', self::NEVER_PAID_STATUSES)
+            ->whereBetween('ends_at', [$since, now()])
+            ->where(fn ($query) => $query->whereNull('trial_ends_at')->orWhereColumn('trial_ends_at', '<', 'ends_at'));
     }
 
     /**

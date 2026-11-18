@@ -56,7 +56,7 @@ it('leaves out trials, ended subscriptions and prices no plan is sold at', funct
     subscribed('price_from_the_dashboard');
 
     expect(RevenueMetrics::mrr())->toBe(0)
-        ->and(RevenueMetrics::activeSubscriptions())->toBe(1)
+        ->and(RevenueMetrics::activeSubscriptions())->toBe(0)
         ->and(RevenueMetrics::trials())->toBe(1);
 });
 
@@ -66,15 +66,54 @@ it('keeps a cancelled subscription in revenue until its paid period ends', funct
     expect(RevenueMetrics::mrr())->toBe(2900);
 });
 
-it('counts subscriptions that ended in the last 30 days as churn', function () {
-    subscribed('price_pro');
-    subscribed('price_pro');
-    subscribed('price_pro');
-    subscribed('price_pro', 'canceled', ['ends_at' => now()->subDays(3)]);
-    subscribed('price_pro', 'canceled', ['ends_at' => now()->subDays(45)]);
+it('counts paying subscriptions that ended in the last 30 days as churn', function () {
+    $longAgo = ['created_at' => now()->subMonths(3)];
 
+    subscribed('price_pro', attributes: $longAgo);
+    subscribed('price_pro', attributes: $longAgo);
+    subscribed('price_pro', attributes: $longAgo);
+    subscribed('price_pro', 'canceled', ['ends_at' => now()->subDays(3), ...$longAgo]);
+    subscribed('price_pro', 'canceled', ['ends_at' => now()->subDays(45), ...$longAgo]);
+
+    // Paying 30 days ago: the three still active and the one that ended 3 days ago.
     expect(RevenueMetrics::churned())->toBe(1)
         ->and(RevenueMetrics::churnRate())->toBe(25.0);
+});
+
+it('never counts a trial that ended without paying as churn', function () {
+    subscribed('price_pro', attributes: ['created_at' => now()->subMonths(3)]);
+    subscribed('price_pro', 'canceled', ['created_at' => now()->subDays(20), 'trial_ends_at' => now()->subDays(6), 'ends_at' => now()->subDays(6)]);
+
+    expect(RevenueMetrics::churned())->toBe(0)
+        ->and(RevenueMetrics::churnRate())->toBe(0.0);
+});
+
+it('counts a cancellation only once its paid period is over', function () {
+    subscribed('price_pro', attributes: ['created_at' => now()->subMonths(3), 'ends_at' => now()->addDays(5)]);
+
+    expect(RevenueMetrics::churned())->toBe(0)
+        ->and(RevenueMetrics::churnRate())->toBe(0.0)
+        ->and(RevenueMetrics::mrr())->toBe(2900);
+});
+
+it('measures the churn rate against those paying at the start of the window', function () {
+    subscribed('price_pro', attributes: ['created_at' => now()->subMonths(3)]);
+    subscribed('price_pro', 'canceled', ['created_at' => now()->subMonths(3), 'ends_at' => now()->subDays(2)]);
+    // Started and ended inside the window: churn, but not part of the starting base.
+    subscribed('price_pro', 'canceled', ['created_at' => now()->subDays(10), 'ends_at' => now()->subDays(1)]);
+    // Still on its trial when the window began.
+    subscribed('price_pro', attributes: ['created_at' => now()->subDays(40), 'trial_ends_at' => now()->subDays(26)]);
+
+    expect(RevenueMetrics::churned())->toBe(2)
+        ->and(RevenueMetrics::churnRate())->toBe(50.0);
+});
+
+it('counts a subscription still on its trial nowhere but in trials, whatever its trial date', function () {
+    subscribed('price_pro', 'trialing', ['trial_ends_at' => now()->addDays(3)]);
+
+    expect(RevenueMetrics::mrr())->toBe(0)
+        ->and(RevenueMetrics::activeSubscriptions())->toBe(0)
+        ->and(RevenueMetrics::trials())->toBe(1);
 });
 
 it('has no churn rate before the first subscription', function () {

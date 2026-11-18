@@ -276,10 +276,10 @@ The dashboard of `/admin` shows how the business is doing: monthly recurring rev
 
 - Everything is read from the app's own tables: Cashier's `subscriptions`, `users`, `workspaces` and the audit log. Nothing asks Stripe, so the dashboard opens fast and works before you have a Stripe account.
 - A subscription's price becomes money through `unit_amount` in `config/billing.php` (cents, in `CASHIER_CURRENCY`), next to the `amount` people see. Keep both in step with Stripe. A yearly price counts as a twelfth a month, and a per-seat plan once per seat.
-- MRR counts subscriptions that are `active` or `past_due` (Stripe is still retrying the payment), including one cancelled at the end of its period until that period ends. Trials are listed on their own and are not revenue yet.
-- Churn is the subscriptions that ended in the last 30 days, and the rate is their share of those paid for at the start of that window.
+- MRR and **Paying subscriptions** count the same subscriptions: `active` or `past_due` (Stripe is still retrying the payment), on a price `config/billing.php` sells, including one cancelled at the end of its period until that period ends. Trials (Stripe's `trialing`) are listed on their own and are not revenue yet. The sums are made per price in the database, so the dashboard reads one row per price, not one per subscription.
+- **Churned** is the subscriptions that ended in the last 30 days after paying at least once: a trial that ended without a payment is not churn, and a cancellation that takes effect later is not churn yet. The **rate** is the share of the subscriptions paying 30 days ago (started, past any trial, not ended) that have ended since; subscriptions that started within the window are left out of it.
 - Each figure is cached for five minutes (`RevenueMetrics::CACHE_SECONDS`), so a busy dashboard runs its queries once.
-- A price changed in Stripe without a matching `unit_amount` change shows the old amount here, and a price `config/billing.php` does not list counts as 0. For accounting, Stripe's own reports remain the reference.
+- A price changed in Stripe without a matching `unit_amount` change shows the old amount here, and a subscription on a price `config/billing.php` does not list is left out of both MRR and the paying count. For accounting, Stripe's own reports remain the reference.
 
 ### Support logins
 
@@ -347,7 +347,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `OnboardingTest`: the Get started steps worked out from real data, the checklist for owners and admins only, going away when done, dismissing it for one workspace and never another, members unable to dismiss it.
 - `SocialLoginTest`: buttons only for providers with credentials, signing up and signing in, linking only verified addresses on both sides, two-factor accounts and admins refused, a failed provider, an invitation followed by a social sign-up, connecting and disconnecting on the Profile page (never the last way in), choosing a first password, deleting an account without one, the export.
 - `ApiTokenTest`: the API stays inside the token's workspace (lists, by id, creating), validation, the plan's project limit, plans without API access, abilities, missing, wrong, revoked and expired tokens, no browser sessions, the rate limit per token; the API tokens page by role, creating a token shown once, revoking, other workspaces' tokens, the upgrade on the Free plan, deleting a workspace.
-- `RevenueMetricsTest`: MRR from monthly, yearly and per-seat prices, what is left out (trials, ended, unknown prices), churn, plans, sign-ups per day, plan changes, the cache, the dashboard for admins only, no calls to Stripe.
+- `RevenueMetricsTest`: MRR from monthly, yearly and per-seat prices, what is left out (trials, ended, unknown prices), churn (trials that never paid, cancellations not over yet, the base at the start of the window), plans, sign-ups per day, plan changes, the cache, the dashboard for admins only, no calls to Stripe.
 - `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables, the Activity of every workspace.
 - `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping (invitations, overrides, the audit log) is scheduled.
 
