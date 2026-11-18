@@ -1,8 +1,12 @@
 <?php
 
+use App\Models\Project;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Packstub\Features\Facades\Features;
+
+use function Pest\Laravel\postJson;
 
 /*
  * Every table is either central (accounts, memberships, billing, the
@@ -53,10 +57,24 @@ function centralTables(): array
  */
 function workspaceMigrationTables(): array
 {
+    return array_keys(workspaceMigrationBlueprints());
+}
+
+/**
+ * Each table the migrations in database/migrations/workspace create, with
+ * the code that creates it.
+ *
+ * @return array<string, string>
+ */
+function workspaceMigrationBlueprints(): array
+{
     return collect(File::files(database_path('migrations/workspace')))
         ->filter(fn (SplFileInfo $file): bool => $file->getExtension() === 'php')
-        ->flatMap(fn (SplFileInfo $file): array => Str::matchAll("/Schema::create\\(\\s*'([^']+)'/", File::get($file->getPathname()))->all())
-        ->values()
+        ->flatMap(function (SplFileInfo $file): array {
+            preg_match_all('/Schema::(?:connection\(.*?\)->)?create\(\s*[\'"]([^\'"]+)[\'"](.*?)\n\s*\}\);/s', File::get($file->getPathname()), $matches, PREG_SET_ORDER);
+
+            return collect($matches)->mapWithKeys(fn (array $match): array => [$match[1] => $match[2]])->all();
+        })
         ->all();
 }
 
@@ -65,7 +83,8 @@ it('keeps every table that is not central movable to a database per workspace', 
     $fromFolder = workspaceMigrationTables();
     $problems = [];
 
-    $tables = collect(Schema::getTables())->pluck('name')->reject(fn (string $table): bool => $table === 'migrations');
+    $tables = collect(appTables());
+    $blueprints = workspaceMigrationBlueprints();
 
     foreach ($tables->diff($central) as $table) {
         if (! in_array($table, $fromFolder, true)) {
@@ -77,8 +96,12 @@ it('keeps every table that is not central movable to a database per workspace', 
         $columns = collect(Schema::getColumns($table))->keyBy('name');
         $indexes = collect(Schema::getIndexes($table));
 
+        // A ULID, not any string key: `->ulid('id')` in the migration, 26 characters where the database says.
         $primary = $indexes->firstWhere('primary', true);
-        if (($primary['columns'] ?? null) !== ['id'] || ! in_array(Str::lower($columns['id']['type_name'] ?? ''), ['char', 'varchar', 'bpchar'], true)) {
+        $type = Str::lower($columns['id']['type'] ?? '');
+        if (($primary['columns'] ?? null) !== ['id'] || ! str_contains($blueprints[$table] ?? '', "ulid('id')")
+            || ! in_array(Str::lower($columns['id']['type_name'] ?? ''), ['char', 'varchar', 'bpchar'], true)
+            || (str_contains($type, '(') && ! str_contains($type, '(26)'))) {
             $problems[] = "{$table}: needs a ULID primary key (\$table->ulid('id')->primary())";
         }
 
@@ -109,4 +132,22 @@ it('keeps every table that is not central movable to a database per workspace', 
 it('never lists a table of database/migrations/workspace as central', function () {
     expect(array_intersect(workspaceMigrationTables(), array_keys(centralTables())))->toBe([])
         ->and(workspaceMigrationTables())->toContain('projects');
+});
+
+it('leaves no row of a deleted workspace behind, in any table', function () {
+    $workspace = workspace('pro');
+    $workspace->forceFill(['stripe_id' => 'cus_test'])->save();
+    Project::factory()->count(2)->for($workspace)->create();
+    Features::override($workspace, 'projects', 100);
+    $workspace->createToken('CI', ['projects:read']);
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $workspace, 'price_pro'))->assertOk();
+    $other = workspace('pro');
+    Project::factory()->for($other)->create();
+
+    expect(rowsLeftOf($workspace))->not->toBe([]);
+
+    $workspace->delete();
+
+    expect(rowsLeftOf($workspace))->toBe([])
+        ->and(rowsLeftOf($other))->not->toBe([]);
 });
