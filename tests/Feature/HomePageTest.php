@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use App\Support\SiteUrl;
 
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
@@ -62,7 +63,7 @@ it('has what search engines and link previews read', function () {
     get('/')
         ->assertOk()
         ->assertSee('<meta name="description" content="'.e(config('site.description')).'">', escape: false)
-        ->assertSee('<link rel="canonical" href="'.url('/').'">', escape: false)
+        ->assertSee('<link rel="canonical" href="'.rtrim(config('app.url'), '/').'">', escape: false)
         ->assertSee('property="og:title"', escape: false)
         ->assertSee('name="twitter:card"', escape: false);
 });
@@ -71,8 +72,8 @@ it('lists the public pages in the sitemap', function () {
     get('/sitemap.xml')
         ->assertOk()
         ->assertHeader('Content-Type', 'application/xml')
-        ->assertSee('<loc>'.route('terms').'</loc>', escape: false)
-        ->assertSee('<loc>'.route('privacy').'</loc>', escape: false);
+        ->assertSee('<loc>'.SiteUrl::route('terms').'</loc>', escape: false)
+        ->assertSee('<loc>'.SiteUrl::route('privacy').'</loc>', escape: false);
 });
 
 it('keeps search engines out of the panels, and out of everything before production', function () {
@@ -85,7 +86,7 @@ it('keeps search engines out of the panels, and out of everything before product
         ->assertSee('Disallow: /admin')
         ->assertSee('Disallow: /app/')
         ->assertSee('Allow: /app/register')
-        ->assertSee('Sitemap: '.route('sitemap'));
+        ->assertSee('Sitemap: '.SiteUrl::route('sitemap'));
 });
 
 it('has Terms and Privacy pages marked as placeholders', function (string $path, string $title) {
@@ -98,3 +99,17 @@ it('has Terms and Privacy pages marked as placeholders', function (string $path,
     ['/terms', 'Terms of Service'],
     ['/privacy', 'Privacy Policy'],
 ]);
+
+it('builds every URL search engines keep on APP_URL, never on the request\'s host', function () {
+    config()->set('app.url', 'https://my-app.test');
+    app()->detectEnvironment(fn () => 'production');
+
+    $this->get('http://evil.example/terms')
+        ->assertSee('<link rel="canonical" href="https://my-app.test/terms">', escape: false)
+        ->assertSee('<meta property="og:url" content="https://my-app.test/terms">', escape: false)
+        ->assertDontSee('rel="canonical" href="http://evil.example', escape: false);
+
+    $this->get('http://evil.example/')->assertSee('<link rel="canonical" href="https://my-app.test">', escape: false);
+    $this->get('http://evil.example/sitemap.xml')->assertSee('<loc>https://my-app.test</loc>', escape: false)->assertDontSee('evil.example');
+    $this->get('http://evil.example/robots.txt')->assertSee('Sitemap: https://my-app.test/sitemap.xml')->assertDontSee('evil.example');
+});

@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\SocialRedirectController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PersonalDataExportController;
 use App\Http\Controllers\WorkspaceDataExportController;
+use App\Support\SiteUrl;
 use Illuminate\Support\Facades\Route;
 
 // The public site: the home page, the legal pages and what search engines read.
@@ -29,16 +30,16 @@ Route::middleware('throttle:20,1')->group(function (): void {
     Route::get('/auth/{provider}/callback', SocialCallbackController::class)->name('social.callback');
 });
 
-// Every public page, for search engines. Add a route name here when you add a page.
+// Every public page, for search engines, on APP_URL. Add a route name here when you add a page.
 Route::get('/sitemap.xml', fn () => response()
-    ->view('site.sitemap', ['urls' => collect(['home', 'terms', 'privacy'])->map(fn (string $name): string => route($name))])
+    ->view('site.sitemap', ['urls' => collect(['home', 'terms', 'privacy'])->map(fn (string $name): string => SiteUrl::route($name))])
     ->header('Content-Type', 'application/xml'))
     ->name('sitemap');
 
 // Search engines may read the site and the sign-up pages, never the panels. Outside
 // production (a staging copy, say) they are asked to stay away altogether.
 Route::get('/robots.txt', fn () => response(implode("\n", app()->isProduction()
-    ? ['User-agent: *', 'Allow: /app/login', 'Allow: /app/register', 'Disallow: /app/', 'Disallow: /admin', 'Disallow: /exports/', '', 'Sitemap: '.route('sitemap')]
+    ? ['User-agent: *', 'Allow: /app/login', 'Allow: /app/register', 'Disallow: /app/', 'Disallow: /admin', 'Disallow: /exports/', '', 'Sitemap: '.SiteUrl::route('sitemap')]
     : ['User-agent: *', 'Disallow: /'])."\n")
     ->header('Content-Type', 'text/plain'))
     ->name('robots');

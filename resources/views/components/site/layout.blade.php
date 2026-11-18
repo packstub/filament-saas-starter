@@ -6,7 +6,8 @@
 
 @php
     $fullTitle = $title ? $title.' · '.config('app.name') : config('app.name').': '.config('site.tagline');
-    $canonical = url()->current();
+    // On APP_URL, whatever host the request came in on (App\Support\SiteUrl).
+    $canonical = \App\Support\SiteUrl::to(request()->path());
     // Link previews (Slack, X, LinkedIn…) show this 1200×630 picture. Replace it with your own.
     $image = file_exists(public_path('images/og.png')) ? asset('images/og.png') : null;
     $panel = filament()->getPanel('app');
@@ -44,7 +45,7 @@
         @endif
 
         <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
-        <link rel="sitemap" type="application/xml" href="{{ route('sitemap') }}">
+        <link rel="sitemap" type="application/xml" href="{{ \App\Support\SiteUrl::route('sitemap') }}">
 
         {{ $head ?? '' }}
 
