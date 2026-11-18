@@ -28,4 +28,12 @@ return [
 
     'twitter' => env('SITE_TWITTER'),
 
+    /*
+    | While true, the Terms and Privacy pages are the kit's placeholders: they
+    | carry a "Replace with your own" notice and `noindex`, and stay out of the
+    | sitemap. Set it to false once both pages hold your own text.
+    */
+
+    'legal_placeholders' => (bool) env('SITE_LEGAL_PLACEHOLDERS', true),
+
 ];

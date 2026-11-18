@@ -31,8 +31,11 @@ Route::middleware('throttle:20,1')->group(function (): void {
 });
 
 // Every public page, for search engines, on APP_URL. Add a route name here when you add a page.
+// Terms and Privacy join once they are your own (`legal_placeholders` in config/site.php).
 Route::get('/sitemap.xml', fn () => response()
-    ->view('site.sitemap', ['urls' => collect(['home', 'terms', 'privacy'])->map(fn (string $name): string => SiteUrl::route($name))])
+    ->view('site.sitemap', ['urls' => collect(['home'])
+        ->when(! config('site.legal_placeholders'), fn ($pages) => $pages->push('terms', 'privacy'))
+        ->map(fn (string $name): string => SiteUrl::route($name))])
     ->header('Content-Type', 'application/xml'))
     ->name('sitemap');
 

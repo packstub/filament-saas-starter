@@ -68,10 +68,17 @@ it('has what search engines and link previews read', function () {
         ->assertSee('name="twitter:card"', escape: false);
 });
 
-it('lists the public pages in the sitemap', function () {
+it('lists the home page in the sitemap, and the legal pages once they are real', function () {
     get('/sitemap.xml')
         ->assertOk()
         ->assertHeader('Content-Type', 'application/xml')
+        ->assertSee('<loc>'.SiteUrl::route('home').'</loc>', escape: false)
+        ->assertDontSee(SiteUrl::route('terms'))
+        ->assertDontSee(SiteUrl::route('privacy'));
+
+    config()->set('site.legal_placeholders', false);
+
+    get('/sitemap.xml')
         ->assertSee('<loc>'.SiteUrl::route('terms').'</loc>', escape: false)
         ->assertSee('<loc>'.SiteUrl::route('privacy').'</loc>', escape: false);
 });
@@ -99,6 +106,15 @@ it('has Terms and Privacy pages marked as placeholders', function (string $path,
     ['/terms', 'Terms of Service'],
     ['/privacy', 'Privacy Policy'],
 ]);
+
+it('drops the notice and noindex once the legal pages are real', function (string $path) {
+    config()->set('site.legal_placeholders', false);
+
+    get($path)
+        ->assertOk()
+        ->assertDontSee('Replace with your own.')
+        ->assertDontSee('<meta name="robots" content="noindex">', escape: false);
+})->with(['/terms', '/privacy']);
 
 it('builds every URL search engines keep on APP_URL, never on the request\'s host', function () {
     config()->set('app.url', 'https://my-app.test');

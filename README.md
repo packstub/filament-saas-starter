@@ -92,8 +92,8 @@ The public site around them (the home page, Terms, Privacy) is described in [The
 - **`config/site.php`** holds the tagline, the meta description, the company name and contact address on the legal pages and in the footer, and an optional X/Twitter handle (`SITE_*` in `.env`).
 - **Every URL search engines keep** (the canonical URL, `og:url`, the sitemap and robots.txt's `Sitemap:` line) is built on `APP_URL` by `app/Support/SiteUrl.php`, never on the host a request came in on, so set `APP_URL` to the public address, with `https://`. Behind a load balancer or a CDN that terminates TLS, also trust its proxy (`$middleware->trustProxies(...)` in `bootstrap/app.php`), and consider `$middleware->trustHosts()` to refuse other hosts altogether.
 - **Meta tags** live in `resources/views/components/site/layout.blade.php`: title, description, canonical URL, Open Graph and Twitter cards. Put a 1200×630 `public/images/og.png` there and link previews show it.
-- **`/sitemap.xml`** lists the public pages and **`/robots.txt`** keeps search engines out of `/admin` and the panel, apart from the log-in and sign-up pages. Outside production, robots.txt asks them to stay away altogether, so a staging copy is never indexed. Both are routes in `routes/web.php`; add a new page's route name to the sitemap there.
-- **Terms** (`/terms`) and **Privacy** (`/privacy`) are placeholders with a "Replace with your own" notice and a `noindex` tag. Write your own (they are needed before Stripe takes payments), then remove both lines.
+- **`/sitemap.xml`** lists the public pages (the home page, and Terms and Privacy once they are your own) and **`/robots.txt`** keeps search engines out of `/admin` and the panel, apart from the log-in and sign-up pages. Outside production, robots.txt asks them to stay away altogether, so a staging copy is never indexed. Both are routes in `routes/web.php`; add a new page's route name to the sitemap there.
+- **Terms** (`/terms`) and **Privacy** (`/privacy`) are placeholders with a "Replace with your own" notice and a `noindex` tag, and stay out of the sitemap. Write your own (they are needed before Stripe takes payments), then set `SITE_LEGAL_PLACEHOLDERS=false` (`legal_placeholders` in `config/site.php`): the notice and `noindex` go, and both pages join the sitemap.
 
 ### Workspaces
 
@@ -330,7 +330,7 @@ composer test
 
 This checks the code style with Pint and runs the Pest suite. In `tests/Feature`:
 
-- `HomePageTest`: the home page links to sign-up and log-in, its pricing follows the billing config and the free trial, the meta tags, the sitemap, robots.txt in and out of production, the Terms and Privacy placeholders.
+- `HomePageTest`: the home page links to sign-up and log-in, its pricing follows the billing config and the free trial, the meta tags, canonical and sitemap URLs on `APP_URL` whatever the request's host, the sitemap with and without the legal placeholders, robots.txt in and out of production, the Terms and Privacy placeholders and their switch.
 - `SignUpTest`: signing up creates a workspace with the person as owner, the panel opens after e-mail verification, long names, a second workspace, guests and other people's workspaces stay closed.
 - `DataExportTest`: what the personal and the workspace exports hold and leave out, the download routes and who may use them.
 - `AccountTest`: deleting an account with its password, what goes with it and what stays, the only owner of a shared workspace, support logins.
