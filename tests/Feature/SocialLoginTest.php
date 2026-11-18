@@ -276,3 +276,14 @@ it('never connects an account or starts a sign-in during a support login', funct
     expect($owner->socialAccounts()->count())->toBe(0)
         ->and(SocialAccount::count())->toBe(0);
 });
+
+it('finds the user whatever case their address was typed in', function () {
+    $user = User::factory()->create(['email' => 'Nina@Example.com']);
+    providerReturns('google', 'g-1', 'nina@example.com');
+
+    get('/auth/google/callback');
+
+    assertAuthenticatedAs($user);
+    expect(User::count())->toBe(1)
+        ->and($user->socialAccounts()->count())->toBe(1);
+});

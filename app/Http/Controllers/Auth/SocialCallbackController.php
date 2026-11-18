@@ -72,7 +72,9 @@ class SocialCallbackController
             return $this->refuse("{$label} did not share a verified e-mail address with us. Sign up with your e-mail address instead.");
         }
 
-        $user = User::query()->where('email', $email)->first();
+        // Whatever case the address was typed in at sign-up, as Filament Teams matches invitations:
+        // `=` is case-sensitive on SQLite and PostgreSQL, which would make a second account.
+        $user = User::query()->whereRaw('lower(email) = ?', [$email])->first();
 
         if ($user && ! $user->hasVerifiedEmail()) {
             return $this->refuse("An account with {$email} exists but its address is not verified yet. Sign in with your password and follow the link we sent you first.");
