@@ -4,7 +4,7 @@
 
 ## What you need
 
-- `packstub/filament-flow` 1.6 or later, stable on Packagist, PHP 8.3+.
+- `packstub/filament-flow` 1.7 or later (the release whose record actions stay inside the workspace), stable on Packagist, PHP 8.3+.
 - A queue worker in production for **Wait** steps and queued runs (`QUEUE_CONNECTION=database` or Redis, `php artisan queue:work`); the kit's `sync` default is fine while you try it.
 - The scheduler running for **Schedule** triggers: Flow adds `packstub-flow:cron` to it by itself.
 - The **Ask AI** action needs `packstub/agents`; see the [AI recipe](ai.md).
@@ -12,7 +12,7 @@
 ## 1. Install
 
 ```bash run
-composer require packstub/filament-flow:^1.6
+composer require packstub/filament-flow:^1.7
 php artisan vendor:publish --tag=packstub-flow-migrations
 php artisan migrate
 ```
