@@ -3,6 +3,7 @@
 namespace App\Filament\App\Pages\Tenancy;
 
 use App\Models\Workspace;
+use App\Support\DataExport;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
@@ -17,7 +18,8 @@ use Stripe\Exception\ApiErrorException;
 /**
  * "Workspace settings" in the workspace menu, for owners and admins
  * (WorkspacePolicy::update()). The slug stays as it is so links keep working.
- * Owners also find "Delete workspace" here (WorkspacePolicy::delete()).
+ * Owners also find "Export workspace data" and "Delete workspace" here
+ * (WorkspacePolicy::export() and delete()).
  */
 class EditWorkspace extends EditTenantProfile
 {
@@ -39,6 +41,12 @@ class EditWorkspace extends EditTenantProfile
     {
         return $schema->components([
             $this->getFormContentComponent(),
+            Section::make('Export workspace data')
+                ->description('The workspace, its members, invitations, subscriptions, overrides and projects, as one JSON file.')
+                ->visible(fn (): bool => $this->canExport())
+                ->schema([
+                    Actions::make([$this->exportAction()]),
+                ]),
             Section::make('Delete workspace')
                 ->description('Its projects, members, invitations and subscription go with it, for good.')
                 ->visible(fn (): bool => $this->canDelete())
@@ -46,6 +54,19 @@ class EditWorkspace extends EditTenantProfile
                     Actions::make([$this->deleteAction()]),
                 ]),
         ]);
+    }
+
+    /**
+     * Everything the workspace holds (App\Support\DataExport::forWorkspace()), for owners.
+     */
+    public function exportAction(): Action
+    {
+        return Action::make('export')
+            ->label('Download workspace data')
+            ->icon(Heroicon::OutlinedArrowDownTray)
+            ->color('gray')
+            ->authorize(fn (): bool => $this->canExport())
+            ->action(fn () => DataExport::download(DataExport::forWorkspace($this->workspace()), $this->workspace()->slug.'-'.now()->format('Y-m-d').'.json'));
     }
 
     /**
@@ -92,6 +113,11 @@ class EditWorkspace extends EditTenantProfile
                 // The panel picks another workspace of theirs, or offers to create one.
                 return redirect()->route('filament.app.tenant');
             });
+    }
+
+    protected function canExport(): bool
+    {
+        return (bool) Filament::auth()->user()?->can('export', $this->workspace());
     }
 
     protected function canDelete(): bool

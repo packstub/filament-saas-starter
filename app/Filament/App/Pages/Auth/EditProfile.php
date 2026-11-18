@@ -4,6 +4,7 @@ namespace App\Filament\App\Pages\Auth;
 
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\DataExport;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\EditProfile as BaseEditProfile;
 use Filament\Facades\Filament;
@@ -18,7 +19,7 @@ use Packstub\AccountSwitcher\Facades\AccountSwitcher;
 use Stripe\Exception\ApiErrorException;
 
 /**
- * Filament's Profile page, plus "Delete account" at the bottom.
+ * Filament's Profile page, plus "Download your data" and "Delete account" at the bottom.
  */
 class EditProfile extends BaseEditProfile
 {
@@ -27,15 +28,36 @@ class EditProfile extends BaseEditProfile
         return $schema->components([
             $this->getFormContentComponent(),
             ...Arr::wrap($this->getMultiFactorAuthenticationContentComponent()),
+            Section::make('Your data')
+                ->description('Your account, your workspaces and roles, your notifications and every support login into your account, as one JSON file.')
+                ->compact()
+                ->secondary()
+                ->visible(fn (): bool => $this->isOwnAccount())
+                ->schema([
+                    Actions::make([$this->downloadDataAction()]),
+                ]),
             Section::make('Delete account')
                 ->description('Your account, and every workspace where you are the only member, go for good.')
                 ->compact()
                 ->secondary()
-                ->visible(fn (): bool => $this->canDeleteAccount())
+                ->visible(fn (): bool => $this->isOwnAccount())
                 ->schema([
                     Actions::make([$this->deleteAccountAction()]),
                 ]),
         ]);
+    }
+
+    /**
+     * Everything the app holds about this person (App\Support\DataExport::forUser()).
+     */
+    public function downloadDataAction(): Action
+    {
+        return Action::make('downloadData')
+            ->label('Download your data')
+            ->icon(Heroicon::OutlinedArrowDownTray)
+            ->color('gray')
+            ->authorize(fn (): bool => $this->isOwnAccount())
+            ->action(fn () => DataExport::download(DataExport::forUser($this->getUser()), 'my-data-'.now()->format('Y-m-d').'.json'));
     }
 
     /**
@@ -50,7 +72,7 @@ class EditProfile extends BaseEditProfile
             ->label('Delete account')
             ->icon(Heroicon::OutlinedTrash)
             ->color('danger')
-            ->authorize(fn (): bool => $this->canDeleteAccount())
+            ->authorize(fn (): bool => $this->isOwnAccount())
             ->requiresConfirmation()
             ->modalHeading('Delete your account?')
             ->modalDescription(fn (): string => $this->blockingWorkspaces()
@@ -103,7 +125,10 @@ class EditProfile extends BaseEditProfile
         return $this->getUser()->workspacesBlockingDeletion()->map(fn (Workspace $workspace): string => $workspace->name)->values()->all();
     }
 
-    protected function canDeleteAccount(): bool
+    /**
+     * The person themselves, not support signed in as them.
+     */
+    protected function isOwnAccount(): bool
     {
         return $this->getUser() instanceof User && ! AccountSwitcher::isImpersonating();
     }
