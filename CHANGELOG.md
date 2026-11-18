@@ -29,6 +29,7 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - Delete account on the Profile page, behind the password; workspaces only that person used go with it
 - Download your data (Profile page) and Export workspace data (Workspace settings, owners), each as one JSON file
 - After Transfer ownership, Stripe's receipts and billing e-mails go to the new owner
+- A workspace audit log of members, roles, invitations, ownership, plan changes and deletion, on an Activity page for owners and admins
 - Demo accounts with one-click logins in the local environment, never seeded in production
 - Strict Eloquent models outside production, so an N+1 query fails while you develop
 - A Pest suite with architecture tests, and GitHub Actions for PHP 8.3, 8.4 and 8.5

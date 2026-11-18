@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\AuditEvent;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
@@ -99,6 +100,13 @@ final class DataExport
                 'value' => $override->getAttribute('value'),
                 'expires_at' => self::date($override->getAttribute('expires_at')),
             ])->all(),
+            'activity' => AuditEvent::query()->where('workspace_id', $workspace->getKey())->lazyById(500)
+                ->map(fn (AuditEvent $event): array => [
+                    'event' => $event->event->value,
+                    'description' => $event->description(),
+                    'by' => $event->actorLabel(),
+                    'at' => self::date($event->created_at),
+                ]),
             'projects' => Project::query()->whereBelongsTo($workspace)->lazyById(500)
                 ->map(fn (Project $project): array => collect($project->attributesToArray())->except('workspace_id')->all()),
         ];

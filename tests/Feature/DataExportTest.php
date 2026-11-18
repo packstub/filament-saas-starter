@@ -68,6 +68,7 @@ it('exports everything a workspace holds, and nothing of another', function () {
         ->and($export['invitations'][0])->toMatchArray(['email' => 'nina@example.com', 'accepted_at' => null])
         ->and($export['subscriptions'][0])->toMatchArray(['status' => 'active', 'price' => 'price_pro_yearly'])
         ->and($export['feature_overrides'][0])->toMatchArray(['feature' => 'projects'])
+        ->and(collect($export['activity'])->pluck('description'))->toContain('Invited nina@example.com as Member')
         ->and($export['projects'])->toHaveCount(3)
         ->and(collect($export['projects'])->pluck('name'))->not->toContain('Not theirs')
         ->and($export['projects'][0])->toHaveKeys(['id', 'name', 'status'])->not->toHaveKey('workspace_id');

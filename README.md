@@ -11,6 +11,7 @@ Free and open source, under the MIT license.
 - **[Team members](#members-and-invitations)**: invitations by e-mail or link, the roles Owner, Admin and Member, and seats counted against the plan.
 - **[Plans and limits](#plans-and-limits)**: Free, Pro and Business in one config file, a **Your plan** page with usage, and overrides for a single workspace.
 - **[Billing](#billing-with-stripe)**: Stripe Checkout and the customer portal through Laravel Cashier, monthly and yearly prices, a free trial and optional per-seat pricing, with a webhook that puts the workspace on the plan it pays for.
+- **[Audit log](#audit-log)**: who joined, left, changed role, was invited or took over a workspace, and every plan change, on an Activity page for owners and admins.
 - **[Support logins](#support-logins)**: an admin panel where you sign in as a customer to see what they see, with a log of every switch.
 - **[One complete example](#the-projects-pattern)**: Projects, scoped to the workspace, guarded by a policy and counted against a plan limit.
 - **[Tests](#tests)**: a Pest suite over all of the above, and GitHub Actions to run it.
@@ -200,13 +201,27 @@ In production, set `STRIPE_WEBHOOK_SECRET` before taking payments. Cashier verif
 
 The amounts people see (`$29/mo`, `$290/yr`) are text next to each price in `config/billing.php`. Keep them in step with your Stripe prices. Read more in the [Laravel Cashier docs](https://laravel.com/docs/billing).
 
+### Audit log
+
+Every workspace keeps a log of what happened in it: members who joined, left or changed role, invitations sent and accepted, ownership transfers, plan changes (from Stripe, from the admin panel or from the code) and the workspace's deletion. **Activity**, in the `app` panel, shows it to owners and admins, with a filter by kind.
+
+- `app/Models/AuditEvent.php` is an entry, and `AuditEvent::record($workspace, AuditEventType::…, [...])` writes one. Its kinds, with their labels, colours and icons, are `app/Enums/AuditEventType.php`.
+- `app/Listeners/RecordWorkspaceActivity.php` turns Filament Teams' membership events into entries; `Workspace::changePlan()` and the model's `deleted` hook write the plan changes and the deletion.
+- An entry names who did it, or "System" for a webhook or a command. During a [support login](#support-logins) it also names the admin behind it, so the customer's log shows "Ethan Park (support: Sam Carter)".
+- People and workspaces are kept by id and by name as they were, with no foreign keys, so an entry still reads well after either is deleted. Deleting a workspace removes its entries and writes one "Workspace deleted" entry, which stays for the back office.
+- The table is central, next to billing and the support-login log: it keeps the entry of a deleted workspace, so it stays on the main database if workspaces get databases of their own.
+- Entries older than 365 days (`AUDIT_RETENTION_DAYS`, `config/audit.php`) are removed by `model:prune`, scheduled daily in `routes/console.php`. Entries hold names and e-mail addresses, so keep them no longer than your privacy policy says.
+- A workspace's entries are part of its data export.
+
+To log something of your own, add a case to `AuditEventType` with its sentence in `AuditEvent::description()`, and call `AuditEvent::record()` where it happens.
+
 ### Support logins
 
 In `/admin`, **Users** lists everyone with an account. **Impersonate** signs you in as that person and takes you to their workspace, under a banner that says who you are signed in as. **Switch back** returns you to the admin panel.
 
 - Only users with `is_admin` can open `/admin` (`User::canAccessPanel()`), and only with [two-factor authentication](#accounts-and-security) set up.
 - Only admins can sign in as someone else, and never as another admin (`User::canImpersonate()` and `User::canBeImpersonated()`).
-- Every switch is written to the `account_switches` table.
+- Every switch is written to the `account_switches` table, and what the admin does while signed in as someone is in the workspace's [audit log](#audit-log) under both names.
 - The plugin is set up once for both panels in `app/Support/SupportLogins.php`.
 
 Make your own account an admin from `php artisan tinker`:
@@ -260,8 +275,9 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `BillingTest`: subscription webhooks (created, updated, each Stripe status, a trial and its end, deleted, customer deleted) change the plan and the limits; signed and unsigned webhooks; unknown prices.
 - `SeatBillingTest`: per-seat plans: Checkout with a seat per member, the quantity following members who join, leave or accept an invitation, flat plans left alone, Stripe errors, a quantity put right by the next webhook.
 - `BillingPageTest`: the Billing page by role, with and without Stripe keys, monthly and yearly prices, the free trial, Checkout, switching plans and intervals, the customer portal, a past-due subscription and a payment that needs confirming.
+- `AuditLogTest`: what is recorded and by whom (a support login included), plan changes from Stripe and from the admin panel, a deleted workspace and deleted people, pruning, the Activity page by role and by workspace.
 - `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables.
-- `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping is scheduled.
+- `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping (invitations, overrides, the audit log) is scheduled.
 
 `tests/Unit/ArchTest.php` holds the architecture tests: Pest's `php`, `security` and `laravel` presets and a few rules of the kit's own.
 
@@ -288,7 +304,7 @@ The steps, in the order you meet them:
 4. **The `User` model.** It gets `HasPackstubTenants`, which brings its own `getTenants()`, `canAccessTenant()` and `getDefaultTenant()`. Swap `HasTeamMemberships` for `HasTeamRoles`, remove the kit's `getDefaultTenant()`, and add stancl/tenancy's `CentralConnection` trait, so accounts are always read from the central database. The app's own code asks the `Teams` facade (`Teams::ownersOf()`, `Teams::membersOf()`, `Teams::teamsOf()`) instead of the traits' relations, so it keeps working. Two places name the `joinedTeams()` relation: the tests, which can use `Teams::teamsOf()`, and the workspace count of the admin **Users** table (`withCount('joinedTeams')` in `UserResource`), which becomes `withCount('tenants')`.
 5. **Paths or subdomains.** The kit serves workspaces under `/app/{workspace}`. To keep that, set `'identification' => 'path'` and `'route_prefix' => null` in `config/packstub-tenancy.php` before you run `php artisan migrate`. Without the second line, URLs become `/app/teams/{workspace}`. The default is a subdomain per workspace, which needs wildcard DNS and `$workspace->ensureDefaultDomain()` after `Workspace::named()`.
 6. **The panel.** `->tenant()`, `->tenantRegistration()` and `->tenantProfile()` in `AppPanelProvider` make way for `TenancyPlugin::make()`, which registers its own onboarding and profile pages.
-7. **Moving a workspace.** With a shard connection added (`shard_2` here) and the migrations in `database/migrations/workspace` run on it, check with `php artisan tenants:move acme --to=shard_2 --dry-run --exclude=subscriptions`, then run it without `--dry-run`. Always pass `--exclude=subscriptions`: Cashier's `subscriptions` table carries `workspace_id` but belongs with billing, on the central database where the webhooks write.
+7. **Moving a workspace.** With a shard connection added (`shard_2` here) and the migrations in `database/migrations/workspace` run on it, check with `php artisan tenants:move acme --to=shard_2 --dry-run --exclude=subscriptions,audit_events`, then run it without `--dry-run`. Always pass `--exclude=subscriptions,audit_events`: Cashier's `subscriptions` table and the audit log carry `workspace_id` but stay central, where the webhooks write and the admin panel reads.
 8. **Tables that stay central.** Inside a moved workspace the default connection is the workspace's database, so everything central has to name its connection. The kit already does: `config/packstub-teams.php` and `config/packstub-features.php` set `connection` to `DB_CONNECTION`, which is the connection Filament Tenancy treats as central. Filament Account Switcher's tables, notifications and Cashier's subscriptions follow the `User` and `Workspace` models, which are central. Give a central model of your own the `CentralConnection` trait too.
 9. **Code outside a workspace's request.** The admin panel, jobs and commands run on the central database. To read what a workspace owns there, run inside it: `$workspace->run(fn () => Project::count())`. The usage counter in `app/Support/Plans.php` and the `deleting` hook on `Workspace` are the two places in the kit that read projects.
 

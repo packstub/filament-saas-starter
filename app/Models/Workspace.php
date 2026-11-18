@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Billing\StripePrices;
+use App\Enums\AuditEventType;
 use Database\Factories\WorkspaceFactory;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -65,7 +66,13 @@ class Workspace extends Model
             });
 
             FeatureOverride::query()->forScope($workspace)->delete();
+
+            // Its audit log goes too; the entry written below stays for the back office.
+            AuditEvent::query()->where('workspace_id', $workspace->getKey())->delete();
         });
+
+        // Inside the same transaction as the delete (see delete() below).
+        static::deleted(fn (Workspace $workspace) => AuditEvent::record($workspace, AuditEventType::WorkspaceDeleted));
     }
 
     /**
@@ -159,9 +166,19 @@ class Workspace extends Model
      */
     public function changePlan(string $plan): void
     {
+        // A workspace just created has no plan attribute yet: the column's default applies.
+        $from = $this->getAttributes()['plan'] ?? config('packstub-features.default_plan');
+
         $this->forceFill(['plan' => $plan])->save();
 
         Features::flush($this);
+
+        if ($from !== $plan) {
+            AuditEvent::record($this, AuditEventType::PlanChanged, [
+                'from' => Features::planDefinition($from)?->label ?? $from,
+                'to' => Features::planDefinition($plan)?->label ?? $plan,
+            ]);
+        }
     }
 
     /**
