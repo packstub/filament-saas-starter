@@ -15,6 +15,7 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - Two-factor authentication with an authenticator app: optional for customers, required for the admin panel
 - Password rules set in one place, longer and checked against known leaks in production
 - Workspaces as tenants: one per sign-up, as many as a person likes, everything in the panel scoped to the current one
+- A Get started checklist on a new workspace's dashboard that ticks itself off (invite, first project, plan, two-factor) and can be dismissed
 - Workspace names that match a page of the panel (New, Login, Profile…) get a slug of their own
 - Members, invitations by e-mail or link, and the roles Owner, Admin and Member, with invitation e-mails on the queue
 - Plans (Free, Pro, Business) with limits on projects and seats, a Your plan page, and overrides per workspace

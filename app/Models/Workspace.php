@@ -43,10 +43,25 @@ class Workspace extends Model
     use HasFeatures;
     use HasTeamMembers;
 
+    /** @var array<string, mixed> */
+    protected $attributes = [
+        'onboarding_dismissed_at' => null,
+    ];
+
     public const NAME_MAX_LENGTH = 60;
 
     /** Counts the suffix that tells two workspaces of the same name apart. Short enough for a host name, should workspaces ever get subdomains. */
     public const SLUG_MAX_LENGTH = 50;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'onboarding_dismissed_at' => 'datetime',
+        ];
+    }
 
     protected static function booted(): void
     {
