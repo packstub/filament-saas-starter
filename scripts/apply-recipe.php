@@ -19,13 +19,14 @@
  *                                                   the first one after "function app()"
  *     ```php in=… after="A|B"                       insert it after the line holding B
  *     ```php in=… replace="A|B"                     put it in place of the line holding B
+ *     ```php in=… replace="A" through="],"          … of the lines from A to the next one holding "],"
  *     ```php use=app/Providers/AppServiceProvider.php
  *                                                   `use` lines, added after the file's last one
  *
  * An anchor is one or more strings separated by "|": each is looked for from
  * the line after the previous one. An inserted block takes the indentation of
- * the line above it (`before`), of the next line that is not blank (`after`),
- * or of the line it replaces (`replace`).
+ * the line above it (`before`), of the anchor's line (`after`; of the next
+ * line when the anchor opens a block), or of the line it replaces (`replace`).
  */
 if ($argc !== 3) {
     fwrite(STDERR, "Usage: php scripts/apply-recipe.php <recipe.md> <directory>\n");
@@ -195,11 +196,24 @@ function insert(string $path, string $block, array $directives): void
     $like = match ($mode) {
         'before' => $at - 1,
         'replace' => $at,
-        'after' => nextFilledLine($lines, $at + 1) ?? $at,
+        // Inside a block the anchor opens, like the next line; otherwise like the anchor.
+        'after' => preg_match('/[\[({]\s*$/', $lines[$at]) ? (nextFilledLine($lines, $at + 1) ?? $at) : $at,
     };
     preg_match('/^\s*/', $lines[$like], $indent);
 
-    array_splice($lines, $mode === 'after' ? $at + 1 : $at, $mode === 'replace' ? 1 : 0, reindent($block, $indent[0]));
+    $replaced = 0;
+
+    if ($mode === 'replace') {
+        for ($end = $at; isset($directives['through']) && $end < count($lines) && ! str_contains($lines[$end], $directives['through']); $end++);
+
+        if ($end >= count($lines)) {
+            throw new RuntimeException("{$path} has no line holding \"{$directives['through']}\" after \"{$anchor}\".");
+        }
+
+        $replaced = $end - $at + 1;
+    }
+
+    array_splice($lines, $mode === 'after' ? $at + 1 : $at, $replaced, reindent($block, $indent[0]));
     file_put_contents($path, implode("\n", $lines));
 }
 
