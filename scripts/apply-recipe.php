@@ -19,7 +19,7 @@
  *                                                   the first one after "function app()"
  *     ```php in=… after="A|B"                       insert it after the line holding B
  *     ```php in=… replace="A|B"                     put it in place of the line holding B
- *     ```php in=… replace="A" through="],"          … of the lines from A to the next one holding "],"
+ *     ```php in=… replace="A" through="],"          … of the lines from A to the next one that is just "],"
  *     ```php use=app/Providers/AppServiceProvider.php
  *                                                   `use` lines, added after the file's last one
  *
@@ -204,10 +204,10 @@ function insert(string $path, string $block, array $directives): void
     $replaced = 0;
 
     if ($mode === 'replace') {
-        for ($end = $at; isset($directives['through']) && $end < count($lines) && ! str_contains($lines[$end], $directives['through']); $end++);
+        for ($end = $at; isset($directives['through']) && $end < count($lines) && trim($lines[$end]) !== $directives['through']; $end++);
 
         if ($end >= count($lines)) {
-            throw new RuntimeException("{$path} has no line holding \"{$directives['through']}\" after \"{$anchor}\".");
+            throw new RuntimeException("{$path} has no line that is just \"{$directives['through']}\" after \"{$anchor}\".");
         }
 
         $replaced = $end - $at + 1;

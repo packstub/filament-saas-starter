@@ -22,6 +22,7 @@ Each recipe has the same parts: what you get, what you need, install, the plugin
 | [Workflows with Flow](flow.md) | Automations per workspace (triggers, actions, approvals), workflows as a plan limit | `packstub/filament-flow` | stable |
 | [Forms with Form Builder](form-builder.md) | Forms per workspace, hosted or embedded, with submissions; forms as a plan limit | `packstub/filament-form-builder` | stable |
 | [A Projects board with Kanban](kanban.md) | Projects as cards by status, moved with drag and drop | `packstub/filament-kanban` | beta (`^1.0@beta`) |
+| [An AI assistant with credits](ai.md) | A chat assistant per workspace, paid for by monthly AI credits from the plan | `packstub/filament-agents`, `packstub/credits` | needs credits 1.1, agents 1.12, filament-agents 1.19 (not on Packagist yet) |
 
 ## Coming
 
