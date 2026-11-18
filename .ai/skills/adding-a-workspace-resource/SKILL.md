@@ -52,6 +52,6 @@ In `tests/Feature/InvoiceAccessTest.php`, with `workspace()`, `memberOf()` and `
 - each role sees, creates, edits and deletes what `config/packstub-teams.php` allows (a dataset of roles);
 - a member of another workspace sees none of it, and gets a 404 on its URL;
 - the plan limit stops the next one, in the panel and through the action;
-- deleting the workspace removes its invoices; the export contains them.
+- deleting the workspace removes its invoices (`expect(rowsLeftOf($workspace))->toBe([])`); the export contains them.
 
 `TableRulesTest` checks the table on its own. Run `composer test`.

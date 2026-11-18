@@ -22,7 +22,9 @@ Also add the table to `App\Support\DataExport::forWorkspace()`, so the owner's e
 - Delete a workspace with `$workspace->delete()`. It runs the hook and the row in one transaction and cancels the Stripe subscription first. `Workspace::query()->...->delete()` skips all of that.
 - Delete an account with `$user->deleteAccount()`, which refuses while the person is the only owner of a workspace with other members, deletes the workspaces only they used, and dispatches `App\Events\AccountDeleting`.
 - Listeners of `WorkspaceDeleting` and `AccountDeleting` must not implement `ShouldQueue`: they run inside the transaction, and a queued one would find the rows gone (`tests/Feature/DeletionEventsTest.php` fails on one).
-- Files belong to their owner too: what a workspace or a person uploaded is removed in those same listeners.
+- `WorkspaceDeleting` fires first in the `deleting` hook, before the Stripe cancellation and the kit's own rows. In its listeners (and `AccountDeleting`'s), do in the transaction only what it can undo, database rows; delete files and call other services in `DB::afterCommit()`, like `app/Listeners/DeleteWorkspaceFiles.php`.
+- Files belong to their owner too: what a workspace or a person uploaded is removed in those same listeners, after the commit.
+- `rowsLeftOf($workspace)` in `tests/Pest.php` lists the rows any table still holds for a workspace; assert it is empty after deleting one in a new feature's test.
 
 ## Reading workspace data
 
