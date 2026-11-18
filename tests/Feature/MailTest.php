@@ -93,6 +93,21 @@ it('tells the owners once per failure, not on every retry', function (array $pre
     'another change' => [['cancel_at_period_end' => true]],
 ]);
 
+it('tells the owners once when Stripe delivers the same event again', function () {
+    Notification::fake();
+    config(['cashier.webhook.secret' => 'whsec_test']);
+
+    $workspace = workspace('pro');
+    $workspace->forceFill(['stripe_id' => 'cus_test'])->save();
+
+    $event = stripeSubscriptionEvent('updated', $workspace, 'price_pro', 'past_due');
+    $event['data']['previous_attributes'] = ['status' => 'active'];
+    postSignedStripeEvent($event, 'whsec_test')->assertOk();
+    postSignedStripeEvent($event, 'whsec_test')->assertOk();
+
+    Notification::assertSentToTimes(Teams::ownersOf($workspace)->first(), PaymentFailed::class, 1);
+});
+
 it('renders the failed payment notice with the workspace and a link to Billing', function () {
     $workspace = workspaceWithLogo();
     $owner = Teams::ownersOf($workspace)->first();
