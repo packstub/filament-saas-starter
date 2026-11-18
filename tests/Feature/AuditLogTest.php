@@ -6,6 +6,7 @@ use App\Filament\App\Pages\Activity;
 use App\Models\AuditEvent;
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\DataExport;
 use Filament\Actions\Testing\TestAction;
 use Packstub\Teams\Facades\Teams;
 
@@ -118,11 +119,48 @@ it('replaces the log of a deleted workspace with one entry, and leaves other wor
         ->and(AuditEvent::query()->where('workspace_id', $other->id)->count())->toBe($before);
 });
 
-it('keeps entries readable after the people in them are gone', function () {
-    $member = memberOf($this->workspace, 'member');
-    $member->deleteAccount();
+it('keeps what happened but forgets the name and e-mail address of someone who deleted their account', function () {
+    $nina = User::factory()->create(['name' => 'Nina Rossi', 'email' => 'nina@example.com']);
+    $invitation = Teams::invite($this->workspace, 'nina@example.com', 'admin', send: false);
+    Teams::accept($invitation, $nina);
+    Teams::changeRole($this->workspace, $nina, 'member');
+    $ethan = memberOf($this->workspace, 'member');
 
-    expect(activityOf($this->workspace))->toContain("{$member->name} joined as Member", "{$member->name} is no longer a member");
+    actingAs($nina);
+    Teams::removeMember($this->workspace, $ethan);
+
+    Teams::transferOwnership($this->workspace, $this->owner, $nina);
+    Teams::transferOwnership($this->workspace, $nina, $this->owner);
+
+    $nina->fresh()->deleteAccount();
+
+    $log = AuditEvent::query()->where('workspace_id', $this->workspace->id)->get();
+    $stored = $log->map(fn (AuditEvent $event): string => json_encode($event->getAttributes()))->implode("\n");
+
+    expect($stored)->not->toContain('Nina Rossi')->not->toContain('nina@example.com')
+        ->and(activityOf($this->workspace))->toContain(
+            'Invited Deleted user as Admin',
+            'Deleted user joined as Admin',
+            'Deleted user changed from Admin to Member',
+            "Ownership moved from {$this->owner->name} to Deleted user",
+            'Deleted user is no longer a member',
+        )
+        // What she did to others keeps their names, with hers forgotten.
+        ->and($log->firstWhere(fn (AuditEvent $event): bool => $event->description() === "{$ethan->name} is no longer a member")?->actorLabel())->toBe('Deleted user')
+        ->and(activityOf($this->workspace))->toContain("{$ethan->name} joined as Member");
+});
+
+it('puts the entries someone made, or that are about them, into their personal export', function () {
+    $nina = memberOf($this->workspace, 'member');
+    $ethan = memberOf($this->workspace, 'member');
+
+    actingAs($nina);
+    Teams::removeMember($this->workspace, $ethan);
+
+    $activity = collect(DataExport::forUser($nina)['activity'])->pluck('description')->all();
+
+    expect($activity)->toContain("{$nina->name} joined as Member", "{$ethan->name} is no longer a member")
+        ->not->toContain('Plan changed from Free to Pro');
 });
 
 it('prunes entries older than the retention period', function () {

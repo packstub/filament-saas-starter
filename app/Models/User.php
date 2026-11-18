@@ -102,8 +102,10 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     /**
      * Delete the account: every workspace where this person is the only
      * member goes too (its Stripe subscription cancelled first, see
-     * Workspace::delete()), and they leave every other one. All or nothing,
-     * in one transaction; a subscription Stripe will not cancel stops it.
+     * Workspace::delete()), they leave every other one, and the audit logs
+     * keep what happened but no longer their name or e-mail address
+     * (AuditEvent::forget()). All or nothing, in one transaction; a
+     * subscription Stripe will not cancel stops it.
      */
     public function deleteAccount(): void
     {
@@ -117,6 +119,9 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
                     ? $workspace->delete()
                     : Teams::removeMember($workspace, $this);
             }
+
+            // Last, after the entries the removals above wrote.
+            AuditEvent::forget($this);
 
             $this->notifications()->delete();
             $this->delete();

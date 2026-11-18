@@ -32,6 +32,9 @@ class AuditEvent extends Model
 
     public const UPDATED_AT = null;
 
+    /** What a person who deleted their account is called in the log. */
+    public const DELETED_USER = 'Deleted user';
+
     /**
      * @return array<string, string>
      */
@@ -65,6 +68,46 @@ class AuditEvent extends Model
             'impersonator_name' => $impersonator?->getAttribute('name'),
             'properties' => $properties,
         ]);
+    }
+
+    /**
+     * Take a person out of the log, after they deleted their account: their
+     * name and e-mail address become "Deleted user" wherever an entry holds
+     * them, as the actor, the admin behind a support login, the member an
+     * entry is about, or an invited address. What happened stays.
+     */
+    public static function forget(User $user): void
+    {
+        $id = $user->getKey();
+
+        static::query()->where('actor_id', $id)->update(['actor_name' => self::DELETED_USER]);
+        static::query()->where('impersonator_id', $id)->update(['impersonator_name' => self::DELETED_USER]);
+
+        static::query()
+            ->where(fn (Builder $query) => $query
+                ->where('properties->user_id', $id)
+                ->orWhere('properties->from_id', $id)
+                ->orWhere('properties->to_id', $id)
+                ->orWhere('properties->email', $user->email))
+            ->each(function (AuditEvent $event) use ($id, $user): void {
+                $properties = $event->properties;
+
+                if (($properties['user_id'] ?? null) === $id || ($properties['email'] ?? null) === $user->email) {
+                    $properties['name'] = self::DELETED_USER;
+
+                    if (isset($properties['email'])) {
+                        $properties['email'] = self::DELETED_USER;
+                    }
+                }
+
+                foreach (['from', 'to'] as $side) {
+                    if (($properties["{$side}_id"] ?? null) === $id) {
+                        $properties[$side] = self::DELETED_USER;
+                    }
+                }
+
+                $event->forceFill(['properties' => $properties])->save();
+            });
     }
 
     /**

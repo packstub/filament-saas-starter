@@ -28,7 +28,7 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - Projects as the example resource: a status enum, a policy by role, a plan limit checked under a lock
 - Deleting a workspace cancels its Stripe subscription and removes its projects, subscriptions and overrides
 - Delete workspace in Workspace settings, for owners, after typing the workspace's name
-- Delete account on the Profile page, behind the password; workspaces only that person used go with it
+- Delete account on the Profile page, behind the password; workspaces only that person used go with it, and audit logs keep what happened without their name or e-mail address
 - Download your data (Profile page) and Export workspace data (Workspace settings, owners), each as one JSON file
 - After Transfer ownership, Stripe's receipts and billing e-mails go to the new owner
 - A workspace audit log of members, roles, invitations, ownership, plan changes and deletion, on an Activity page for owners and admins

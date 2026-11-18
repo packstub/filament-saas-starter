@@ -6,6 +6,7 @@ use App\Models\AuditEvent;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\LazyCollection;
@@ -55,6 +56,17 @@ final class DataExport
                 'read_at' => self::date($notification->read_at),
                 'created_at' => self::date($notification->created_at),
             ])->all(),
+            // The audit log entries this person made, or that are about them.
+            'activity' => AuditEvent::query()
+                ->where(fn (Builder $query) => $query->where('actor_id', $user->getKey())->orWhere('properties->user_id', $user->getKey()))
+                ->oldest('created_at')->get()
+                ->map(fn (AuditEvent $event): array => [
+                    'workspace' => $event->workspace_name,
+                    'event' => $event->event->value,
+                    'description' => $event->description(),
+                    'by' => $event->actorLabel(),
+                    'at' => self::date($event->created_at),
+                ])->all(),
             // Every time support signed in as this person.
             'support_logins' => AccountSwitch::query()->where('to_user_id', $user->getKey())->oldest('created_at')->get()
                 ->map(fn (AccountSwitch $switch): array => [

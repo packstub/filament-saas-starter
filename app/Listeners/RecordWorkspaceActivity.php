@@ -41,7 +41,9 @@ class RecordWorkspaceActivity
             ])),
             $event instanceof InvitationAccepted => $this->record($event->invitation->team, AuditEventType::InvitationAccepted, $this->person($event->user)),
             $event instanceof OwnershipTransferred => $this->record($event->team, AuditEventType::OwnershipTransferred, [
+                'from_id' => $event->from->getKey(),
                 'from' => $event->from->getAttribute('name'),
+                'to_id' => $event->to->getKey(),
                 'to' => $event->to->getAttribute('name'),
             ]),
         };
