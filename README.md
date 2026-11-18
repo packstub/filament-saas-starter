@@ -57,6 +57,7 @@ cp .env.example .env
 php artisan key:generate
 npm install && npm run build
 php artisan migrate --seed
+php artisan storage:link
 ```
 
 `composer setup` runs those steps in one go.
@@ -104,7 +105,7 @@ A workspace is the tenant: the `App\Models\Workspace` model, with its slug in th
 - **New workspace** in the workspace menu is `app/Filament/App/Pages/Tenancy/RegisterWorkspace.php`. A person can create as many as they like, each starting on the Free plan. If your pricing needs a limit, add it there.
 - `Workspace::named()` creates a workspace from a name: at most 60 characters, with a unique slug of at most 50, the suffix of a repeated name included.
 - A name that matches a page of the panel gets a suffix too: "New" becomes `new-x7k2`, because `/app/new` is the **New workspace** page. `Workspace::reservedSlugs()` reads those words from the panel's routes, so a page or plugin you add later is covered.
-- **Workspace settings** is `EditWorkspace.php` next to it, open to owners and admins through `app/Policies/WorkspacePolicy.php`.
+- **Workspace settings** is `EditWorkspace.php` next to it, open to owners and admins through `app/Policies/WorkspacePolicy.php`. It holds the workspace's name and its **Logo**, shown in the workspace menu. See [Uploaded files](#uploaded-files).
 - **Delete workspace**, at the bottom of Workspace settings, is for owners only (`WorkspacePolicy::delete()`), never during a support login, and asks for the workspace's name. It runs `$workspace->delete()`: the Stripe subscription is cancelled first, then the projects, members, invitations, subscription rows and overrides go in one transaction. If Stripe refuses, nothing is deleted and the owner is told. Afterwards the panel opens another of their workspaces, or the **New workspace** page.
 - **Get started**, on the dashboard of a new workspace (`app/Filament/App/Widgets/GettingStarted.php`), shows owners and admins four steps: invite a teammate, create a first project, choose a plan, turn on two-factor authentication. Each one is worked out from what is really there (members and invitations, projects, a subscription or a paid plan, the person's authenticator app), so it ticks itself off. The checklist goes once every step is done, or when someone clicks **Dismiss**, which hides it for the whole workspace (`workspaces.onboarding_dismissed_at`). Change the steps in `GettingStarted::steps()`.
 - `User::getDefaultTenant()` picks the workspace a person lands in after signing in.
@@ -117,7 +118,18 @@ A workspace is the tenant: the `App\Models\Workspace` model, with its slug in th
 - **Download your data**, on the **Profile** page, gives a person one JSON file with everything the app holds about them: their account, the workspaces they are in and their role, their notifications, and every support login into their account. **Export workspace data**, in Workspace settings, does the same for a workspace, for owners only (`WorkspacePolicy::export()`): members, invitations, subscriptions, overrides and projects. Both come from `app/Support/DataExport.php` and are plain GET downloads (`/exports/me`, `/exports/workspaces/{slug}`, in `app/Http/Controllers`) streamed to the browser as they are read, so a workspace with many projects never sits in memory whole. The buttons link there rather than returning the file from a Filament action, which Livewire would buffer whole. A table you add for a workspace belongs in `DataExport::forWorkspace()` too.
 - **Delete account** is at the bottom of the **Profile** page (`app/Filament/App/Pages/Auth/EditProfile.php`), behind the person's password. `User::deleteAccount()` deletes every workspace where they are the only member (cancelling its subscription first) and takes them out of the others. Someone who is the only owner of a workspace others still use is asked to hand it over under **Members** (**Transfer ownership**) or delete it first, so no workspace is left without an owner. The button is hidden during a support login. Filament Account Switcher's own log loses the support logins into a deleted account (its `account_switches` rows go with the user); the workspaces' audit logs keep what support did, under "Deleted user". A module that keeps something about a person removes it in a listener of `App\Events\AccountDeleting`, dispatched inside the same transaction.
 - **Google and GitHub sign-in** ([Laravel Socialite](https://laravel.com/docs/socialite)) turn on once their keys are in `.env`; until then no button shows. See [Signing in with Google and GitHub](#signing-in-with-google-and-github).
+- **Profile picture**: on the **Profile** page, shown in the user menu instead of the initials. See [Uploaded files](#uploaded-files).
 - **Strict models**: outside production, `Model::shouldBeStrict()` turns a lazy-loaded relation (an N+1 query), a missing attribute and a field left out of `Fillable` into an error, so you find them while developing.
+
+### Uploaded files
+
+Workspace logos and profile pictures are Filament file uploads, set up in `config/uploads.php` and `app/Support/Uploads.php`:
+
+- **Where**: the `public` disk by default (`storage/app/public`, linked into `public/` by `php artisan storage:link`, which `composer setup` runs). Set `UPLOADS_DISK=s3` and the `AWS_*` variables for an S3 or S3-compatible bucket, after `composer require league/flysystem-aws-s3-v3 "^3.0"`. On Laravel Cloud, attach a public bucket named `public` ([the guide](docs/deploy/laravel-cloud.md)).
+- **What**: PNG, JPEG or WebP, up to `UPLOADS_MAX_SIZE` kilobytes (1024 by default). No SVG: a picture people upload is served from your domain, and an SVG can carry scripts.
+- **Who owns it**: every file sits in its owner's folder, `workspaces/{id}/…` or `users/{id}/…`. The models refuse a path outside it (`workspaces.logo_path`, `users.avatar_path`), so nobody can point their workspace at another one's file, and a replaced logo or picture is deleted from the disk.
+- **Deleting**: `app/Listeners/DeleteWorkspaceFiles.php` and `DeleteAccountFiles.php` remove the owner's whole folder when the workspace or the account is deleted, once the deletion is committed; a deletion that fails keeps the files. A file your own code stores for a workspace goes under `Uploads::workspaceDirectory($workspace)` and is removed with it for free.
+- **Public by link**: anyone with a file's URL can open it. Keep files that must stay private on a private disk and hand them out with `Storage::temporaryUrl()`.
 
 ### Signing in with Google and GitHub
 
@@ -337,6 +349,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 
 - `HomePageTest`: the home page links to sign-up and log-in, its pricing follows the billing config and the free trial, the meta tags, canonical and sitemap URLs on `APP_URL` whatever the request's host, the sitemap with and without the legal placeholders, robots.txt in and out of production, the Terms and Privacy placeholders and their switch.
 - `SignUpTest`: signing up creates a workspace with the person as owner, the panel opens after e-mail verification, long names, a second workspace, guests and other people's workspaces stay closed.
+- `UploadsTest`: logos and profile pictures stored in their owner's folder and shown in the menus, size and type limits, a replaced file removed, never another workspace's or person's file, the folders removed when a workspace or an account is deleted (and kept when the deletion fails), the exports.
 - `DataExportTest`: what the personal and the workspace exports hold and leave out, the download routes and who may use them.
 - `AccountTest`: deleting an account with its password, what goes with it and what stays, the only owner of a shared workspace, support logins.
 - `AuthenticationTest`: the password rules, signing in with and without an authenticator app, two-factor authentication required for the admin panel.

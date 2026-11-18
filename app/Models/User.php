@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Events\AccountDeleting;
+use App\Support\Uploads;
 use App\Support\WorkspacePermissions;
 use Database\Factories\UserFactory;
 use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthentication;
@@ -10,6 +11,7 @@ use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthenticationRecover
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
 use Filament\Models\Contracts\HasDefaultTenant;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
@@ -23,14 +25,15 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use LogicException;
 use Packstub\AccountSwitcher\Concerns\HasLinkedAccounts;
 use Packstub\Teams\Concerns\HasTeamMemberships;
 use Packstub\Teams\Facades\Teams;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'avatar_path'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasDefaultTenant, HasTenants, MustVerifyEmail
+class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasAvatar, HasDefaultTenant, HasTenants, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory;
@@ -49,7 +52,26 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     /** @var array<string, mixed> */
     protected $attributes = [
         'is_admin' => false,
+        'avatar_path' => null,
     ];
+
+    protected static function booted(): void
+    {
+        // A profile picture is one of the person's own files: a path saved here never points elsewhere.
+        static::saving(function (User $user): void {
+            if ($user->isDirty('avatar_path') && filled($user->avatar_path)
+                && ! Uploads::isInside($user->avatar_path, Uploads::userDirectory($user))) {
+                throw new InvalidArgumentException('A profile picture must be stored in the person\'s own folder.');
+            }
+        });
+
+        // The picture it replaced, or removed, goes from the disk.
+        static::updated(function (User $user): void {
+            if ($user->wasChanged('avatar_path')) {
+                Uploads::delete($user->getOriginal('avatar_path'), Uploads::userDirectory($user));
+            }
+        });
+    }
 
     /**
      * @return array<string, string>
@@ -61,6 +83,14 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'password' => 'hashed',
             'is_admin' => 'boolean',
         ];
+    }
+
+    /**
+     * The profile picture, in the user menu; Filament shows initials without one.
+     */
+    public function getFilamentAvatarUrl(): ?string
+    {
+        return Uploads::url($this->avatar_path);
     }
 
     public function canAccessPanel(Panel $panel): bool

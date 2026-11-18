@@ -3,8 +3,10 @@
 namespace App\Filament\App\Pages\Tenancy;
 
 use App\Models\Workspace;
+use App\Support\Uploads;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Tenancy\EditTenantProfile;
@@ -33,6 +35,7 @@ class EditWorkspace extends EditTenantProfile
             TextInput::make('name')
                 ->required()
                 ->maxLength(Workspace::NAME_MAX_LENGTH),
+            $this->logoUpload(),
         ]);
     }
 
@@ -53,6 +56,24 @@ class EditWorkspace extends EditTenantProfile
                     Actions::make([$this->deleteAction()]),
                 ]),
         ]);
+    }
+
+    /**
+     * The workspace's logo, in its own folder on the uploads disk (config/uploads.php).
+     * Workspace removes the file it replaces, and the folder goes with the workspace.
+     */
+    protected function logoUpload(): FileUpload
+    {
+        return FileUpload::make('logo_path')
+            ->label('Logo')
+            ->helperText('Shown in the workspace menu. PNG, JPEG or WebP; square works best.')
+            ->image()
+            ->avatar()
+            ->disk(Uploads::diskName())
+            ->visibility(config('uploads.visibility'))
+            ->directory(fn (): string => Uploads::workspaceDirectory($this->workspace()).'/logo')
+            ->acceptedFileTypes(config('uploads.image_types'))
+            ->maxSize(config('uploads.max_size'));
     }
 
     /**

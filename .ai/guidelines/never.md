@@ -13,4 +13,6 @@ Each of these looks harmless and breaks something the tests or the customers rel
 - Never register a plugin straight in a panel provider (use `app/Filament/Plugins.php`), and never move `AppPanelProvider` from the last place in `bootstrap/providers.php`.
 - Never return a file download from a Filament action: Livewire buffers it whole. Link to a route that streams it, like the data exports.
 - Never sign in an admin through Google or GitHub, or skip two-factor authentication on a social sign-in.
+- Never store an uploaded file outside its owner's folder (`App\Support\Uploads::workspaceDirectory()` or `userDirectory()`): deletion removes files by that folder, and the models refuse a path outside it.
+- Never accept SVG or HTML uploads on a public disk: they run scripts on your domain.
 - Never leave a test red or Pint unhappy: `composer test` passes before a change is done.

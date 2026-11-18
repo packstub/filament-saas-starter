@@ -114,7 +114,7 @@ One cron entry (Forge: **Scheduler**, Ploi: **Cron jobs**):
 
 ## 6. Files
 
-Files on the `public` disk live in `storage/app/public`, served through the `public/storage` link that `storage:link` creates. On one server, back that folder up with the database. On several servers, or to keep the disk small, use S3 or an S3-compatible bucket (R2, DigitalOcean Spaces, MinIO): `composer require league/flysystem-aws-s3-v3 "^3.0"`, set the `AWS_*` variables and use the `s3` disk.
+Files on the `public` disk live in `storage/app/public`, served through the `public/storage` link that `storage:link` creates. On one server, back that folder up with the database. On several servers, or to keep the disk small, use S3 or an S3-compatible bucket (R2, DigitalOcean Spaces, MinIO): `composer require league/flysystem-aws-s3-v3 "^3.0"`, set the `AWS_*` variables and `UPLOADS_DISK=s3`.
 
 ## 7. HTTPS and proxies
 

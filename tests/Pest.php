@@ -6,6 +6,7 @@ use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Packstub\Teams\Facades\Teams;
@@ -17,6 +18,8 @@ use function Pest\Laravel\actingAs;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
+    // Uploads go to a throwaway disk, so deleting a workspace in a test never touches your local files.
+    ->beforeEach(fn () => Storage::fake(config('uploads.disk')))
     ->afterEach(fn () => ApiRequestor::setHttpClient(null))
     ->in('Feature');
 

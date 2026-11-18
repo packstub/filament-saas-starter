@@ -43,6 +43,7 @@ A feature with a value per plan in `config/packstub-features.php`, a `->usage('i
 
 - In `App\Models\Workspace`'s `deleting` hook: `$workspace->invoices()->delete();` next to the projects line.
 - In `App\Support\DataExport::forWorkspace()`: the invoices, so the owner's export holds them.
+- Files of an invoice: under `Uploads::workspaceDirectory($workspace)` on `Uploads::disk()`, so `DeleteWorkspaceFiles` removes them with the workspace.
 
 ## 7. Tests
 

@@ -35,6 +35,7 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - `WorkspaceDeleting` and `AccountDeleting` events inside the deletion's transaction, so a module's rows go with the workspace or the person without editing the models
 - Delete workspace in Workspace settings, for owners, after typing the workspace's name
 - Delete account on the Profile page, behind the password; workspaces only that person used go with it, and audit logs keep what happened without their name or e-mail address
+- Workspace logos and profile pictures, shown in the workspace and user menus, stored per workspace or person on a configurable disk (local or S3) and removed with them
 - Download your data (Profile page) and Export workspace data (Workspace settings, owners), each as one JSON file
 - After Transfer ownership, Stripe's receipts and billing e-mails go to the new owner
 - API tokens per workspace, with abilities and an expiry, created and revoked by owners and admins on an API tokens page

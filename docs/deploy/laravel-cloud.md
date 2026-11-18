@@ -9,7 +9,7 @@ What the app needs in production, whatever the host:
 | A MySQL or PostgreSQL database | Cloud resets the disk on every deploy, so SQLite is not an option there. |
 | A queue worker | The verification, password reset and invitation e-mails, and the Stripe syncs of the seat count (`app/Jobs/SyncSeatQuantity.php`) and the billing contact (`app/Jobs/SyncStripeCustomer.php`) are queued. |
 | The scheduler | Daily housekeeping in `routes/console.php`: expired invitations, feature overrides and API tokens, and the audit log past `AUDIT_RETENTION_DAYS`. |
-| A bucket, once people upload files | The disk of a Cloud instance is temporary and not shared between replicas. |
+| A public bucket | Workspace logos and profile pictures: the disk of a Cloud instance is temporary and not shared between replicas. |
 | A mail provider | Sign-up waits for the verification e-mail. |
 | A Stripe webhook | Plans change only when Stripe says so. |
 
@@ -64,7 +64,7 @@ On the environment's canvas:
 2. **Cache** (optional): the `database` cache and sessions are fine to start with. With a Laravel Valkey cache attached, Cloud sets `CACHE_STORE`; set `SESSION_DRIVER=redis` yourself if sessions should go there too.
 3. **Queue**: add a **managed queue**. Cloud sets `QUEUE_CONNECTION=cloud` and scales its workers with the jobs waiting. On a small app you can instead add a `queue:work` background process to the App cluster, with `QUEUE_CONNECTION=database`.
 4. **Scheduler**: switch on **Scheduler** on the App cluster. Cloud runs `schedule:run` every minute. The kit's tasks are daily clean-ups that are safe to run twice, so they need no `onOneServer()` when the App cluster has several replicas; a task of your own that must run once does.
-5. **Bucket** (when people upload files): a **public** bucket with the disk name `public`, for files anyone may see through a link, such as logos and avatars. Cloud wires the disk into Laravel; do not set `visibility: 'public'` in `config/filesystems.php`, the bucket decides. Files only the app should hand out go in a second, **private** bucket, made the default disk, and are served through `Storage::temporaryUrl()`.
+5. **Bucket**: a **public** bucket with the disk name `public`, for workspace logos and profile pictures (`UPLOADS_DISK=public`, the default). Cloud wires the disk into Laravel; do not set `visibility: 'public'` in `config/filesystems.php`, the bucket decides. Files only the app should hand out go in a second, **private** bucket, made the default disk, and are served through `Storage::temporaryUrl()`.
 
 Redeploy after attaching anything.
 
@@ -139,6 +139,7 @@ php artisan tinker --execute="App\Models\User::where('email', 'you@your-domain.c
 - Sign up with a new address and follow the verification e-mail: mail and the queue work.
 - Invite someone: the invitation e-mail arrives (through the worker).
 - Subscribe to a plan with a [Stripe test card](https://docs.stripe.com/testing) on staging, or a real one you refund in production: the Billing page shows the plan once the webhook arrives.
+- Upload a workspace logo, redeploy: it is still there (it lives in the bucket).
 - The **Logs** and **Queue** views in Cloud show no failures.
 
 Go through [the production checklist](production-checklist.md) before you announce anything.

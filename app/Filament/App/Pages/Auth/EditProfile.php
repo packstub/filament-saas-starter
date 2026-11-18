@@ -5,9 +5,11 @@ namespace App\Filament\App\Pages\Auth;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Support\SocialLogin;
+use App\Support\Uploads;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\EditProfile as BaseEditProfile;
 use Filament\Facades\Filament;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
@@ -25,6 +27,36 @@ use Stripe\Exception\ApiErrorException;
  */
 class EditProfile extends BaseEditProfile
 {
+    public function form(Schema $schema): Schema
+    {
+        return $schema->components([
+            $this->getAvatarFormComponent(),
+            $this->getNameFormComponent(),
+            $this->getEmailFormComponent(),
+            $this->getPasswordFormComponent(),
+            $this->getPasswordConfirmationFormComponent(),
+            $this->getCurrentPasswordFormComponent(),
+        ]);
+    }
+
+    /**
+     * The profile picture, in the person's own folder on the uploads disk
+     * (config/uploads.php). User removes the file it replaces, and the
+     * folder goes with the account.
+     */
+    protected function getAvatarFormComponent(): Component
+    {
+        return FileUpload::make('avatar_path')
+            ->label('Profile picture')
+            ->image()
+            ->avatar()
+            ->disk(Uploads::diskName())
+            ->visibility(config('uploads.visibility'))
+            ->directory(fn (): string => Uploads::userDirectory($this->getUser()).'/avatar')
+            ->acceptedFileTypes(config('uploads.image_types'))
+            ->maxSize(config('uploads.max_size'));
+    }
+
     public function content(Schema $schema): Schema
     {
         return $schema->components([

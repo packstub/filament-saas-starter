@@ -59,6 +59,9 @@ Application code never calls `env()`; it reads `config()`, so after changing a v
 | Variable | Production value | What it does |
 | --- | --- | --- |
 | `FILESYSTEM_DISK` | `local`, or your bucket's disk | The default disk. |
+| `UPLOADS_DISK` | `public` on one server or on Laravel Cloud with a public bucket named `public`; `s3` for a bucket of your own | Where workspace logos and profile pictures go (`config/uploads.php`). |
+| `UPLOADS_VISIBILITY` | Unset | The visibility passed with each upload; unset lets Filament choose (public on the `public` disk). |
+| `UPLOADS_MAX_SIZE` | `1024` | The largest upload, in kilobytes. |
 | `AWS_ACCESS_KEY_ID` | Your bucket key | For an S3 or S3-compatible bucket (`s3` disk). Laravel Cloud fills these in when you attach a bucket. |
 | `AWS_SECRET_ACCESS_KEY` | Your bucket secret | |
 | `AWS_DEFAULT_REGION` | Your bucket's region | |
