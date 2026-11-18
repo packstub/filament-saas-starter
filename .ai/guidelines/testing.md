@@ -18,4 +18,5 @@
 - Use factory states (`admin()`, `withAppAuthentication()`, `unverified()`, `paused()`, `onPlan()`) instead of mocked models.
 - A user signed in to `/admin` in a test needs `admin()`: the panel requires two-factor authentication.
 - `actingAs()` users are never re-read from the database, so give `UserFactory` a value for every new `users` column (models are strict).
+- The uploads disk is faked for every test (`tests/Pest.php`), so deleting a workspace never touches local files.
 - Fake what leaves the app: `Mail::fake()`, `Notification::fake()`, `Queue::fake()`, `Storage::fake()`, `Http::fake()`.

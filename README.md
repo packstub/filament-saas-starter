@@ -105,7 +105,7 @@ A workspace is the tenant: the `App\Models\Workspace` model, with its slug in th
 - **New workspace** in the workspace menu is `app/Filament/App/Pages/Tenancy/RegisterWorkspace.php`. A person can create as many as they like, each starting on the Free plan. If your pricing needs a limit, add it there.
 - `Workspace::named()` creates a workspace from a name: at most 60 characters, with a unique slug of at most 50, the suffix of a repeated name included.
 - A name that matches a page of the panel gets a suffix too: "New" becomes `new-x7k2`, because `/app/new` is the **New workspace** page. `Workspace::reservedSlugs()` reads those words from the panel's routes, so a page or plugin you add later is covered.
-- **Workspace settings** is `EditWorkspace.php` next to it, open to owners and admins through `app/Policies/WorkspacePolicy.php`. It holds the workspace's name and its **Logo**, shown in the workspace menu. See [Uploaded files](#uploaded-files).
+- **Workspace settings** is `EditWorkspace.php` next to it, open to owners and admins through `app/Policies/WorkspacePolicy.php`. It holds the workspace's name and its **Logo**, shown in the workspace menu and at the top of the workspace's e-mails. See [Uploaded files](#uploaded-files).
 - **Delete workspace**, at the bottom of Workspace settings, is for owners only (`WorkspacePolicy::delete()`), never during a support login, and asks for the workspace's name. It runs `$workspace->delete()`: the Stripe subscription is cancelled first, then the projects, members, invitations, subscription rows and overrides go in one transaction. If Stripe refuses, nothing is deleted and the owner is told. Afterwards the panel opens another of their workspaces, or the **New workspace** page.
 - **Get started**, on the dashboard of a new workspace (`app/Filament/App/Widgets/GettingStarted.php`), shows owners and admins four steps: invite a teammate, create a first project, choose a plan, turn on two-factor authentication. Each one is worked out from what is really there (members and invitations, projects, a subscription or a paid plan, the person's authenticator app), so it ticks itself off. The checklist goes once every step is done, or when someone clicks **Dismiss**, which hides it for the whole workspace (`workspaces.onboarding_dismissed_at`). Change the steps in `GettingStarted::steps()`.
 - `User::getDefaultTenant()` picks the workspace a person lands in after signing in.
@@ -130,6 +130,19 @@ Workspace logos and profile pictures are Filament file uploads, set up in `confi
 - **Who owns it**: every file sits in its owner's folder, `workspaces/{id}/…` or `users/{id}/…`. The models refuse a path outside it (`workspaces.logo_path`, `users.avatar_path`), so nobody can point their workspace at another one's file, and a replaced logo or picture is deleted from the disk.
 - **Deleting**: `app/Listeners/DeleteWorkspaceFiles.php` and `DeleteAccountFiles.php` remove the owner's whole folder when the workspace or the account is deleted, once the deletion is committed; a deletion that fails keeps the files. A file your own code stores for a workspace goes under `Uploads::workspaceDirectory($workspace)` and is removed with it for free.
 - **Public by link**: anyone with a file's URL can open it. Keep files that must stay private on a private disk and hand them out with `Storage::temporaryUrl()`.
+
+### E-mails
+
+Every e-mail the app sends, Filament's verification and password reset included, uses one layout: `resources/views/vendor/mail/html/message.blade.php` with the `saas` theme (`html/themes/saas.css`, Laravel's default in the panel's Indigo; `markdown` in `config/mail.php`). The top shows `APP_NAME`, or the workspace's name and **Logo** when the e-mail is about a workspace; the bottom shows `SITE_COMPANY` and `SITE_CONTACT_EMAIL`. Change the colours in the theme, the wording in the views.
+
+| E-mail | Sent to | From |
+| --- | --- | --- |
+| Invitation | The invited address | Filament Teams, with the workspace's logo (`resources/views/vendor/packstub-teams/mail/invitation.blade.php`) |
+| Payment failed | The workspace's owners, also in the bell menu | `app/Notifications/PaymentFailed.php`, when a Stripe webhook moves the subscription to past due (`app/Listeners/NotifyOwnersOfFailedPayment.php`), once per failure |
+| Workspace deleted | Everyone who was in it, and who deleted it | `app/Notifications/WorkspaceDeleted.php`, after the deletion is committed (`app/Listeners/SendWorkspaceDeletedNotice.php`) |
+| Account deleted | The deleted account's address | `app/Notifications/AccountDeleted.php`, after the deletion is committed (`app/Listeners/SendAccountDeletedNotice.php`) |
+
+Receipts and invoices come from Stripe: turn them on in Stripe's customer e-mail settings, where you can also brand them. All of these are queued, so a worker must run in production. Preview one with `php artisan tinker` and `(new App\Notifications\AccountDeleted('Ada'))->toMail(new Illuminate\Notifications\AnonymousNotifiable)->render()`, or send them to [Mailpit](https://mailpit.axllent.org) locally with `MAIL_MAILER=smtp` and `MAIL_PORT=1025`.
 
 ### Signing in with Google and GitHub
 
@@ -349,6 +362,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 
 - `HomePageTest`: the home page links to sign-up and log-in, its pricing follows the billing config and the free trial, the meta tags, canonical and sitemap URLs on `APP_URL` whatever the request's host, the sitemap with and without the legal placeholders, robots.txt in and out of production, the Terms and Privacy placeholders and their switch.
 - `SignUpTest`: signing up creates a workspace with the person as owner, the panel opens after e-mail verification, long names, a second workspace, guests and other people's workspaces stay closed.
+- `MailTest`: the branded layout and theme on every e-mail, the workspace's name and logo on its invitation, the failed payment notice to owners only and once per failure, the deletion notices to members and to a deleted account, none after a rollback.
 - `UploadsTest`: logos and profile pictures stored in their owner's folder and shown in the menus, size and type limits, a replaced file removed, never another workspace's or person's file, the folders removed when a workspace or an account is deleted (and kept when the deletion fails), the exports.
 - `DataExportTest`: what the personal and the workspace exports hold and leave out, the download routes and who may use them.
 - `AccountTest`: deleting an account with its password, what goes with it and what stays, the only owner of a shared workspace, support logins.

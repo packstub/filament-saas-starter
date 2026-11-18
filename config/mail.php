@@ -115,4 +115,24 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Markdown Mail Settings
+    |--------------------------------------------------------------------------
+    |
+    | Every e-mail uses the layout in resources/views/vendor/mail and its
+    | `saas` theme (html/themes/saas.css): the app's or the workspace's name
+    | and logo at the top, your company and contact address at the bottom
+    | (config/site.php).
+    |
+    */
+
+    'markdown' => [
+        'theme' => 'saas',
+
+        'paths' => [
+            resource_path('views/vendor/mail'),
+        ],
+    ],
+
 ];

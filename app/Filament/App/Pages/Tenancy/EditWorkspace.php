@@ -66,7 +66,7 @@ class EditWorkspace extends EditTenantProfile
     {
         return FileUpload::make('logo_path')
             ->label('Logo')
-            ->helperText('Shown in the workspace menu. PNG, JPEG or WebP; square works best.')
+            ->helperText('Shown in the workspace menu and at the top of the e-mails about this workspace. PNG, JPEG or WebP; square works best.')
             ->image()
             ->avatar()
             ->disk(Uploads::diskName())
