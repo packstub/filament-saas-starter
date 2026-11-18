@@ -24,6 +24,16 @@ class Project extends Model
     use HasUlids;
 
     /**
+     * The column's default, known to the model too: a project created
+     * without a status (from the API, say) has one before it is re-read.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'status' => 'active',
+    ];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array

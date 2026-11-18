@@ -64,6 +64,8 @@ it('exports everything a workspace holds, and nothing of another', function () {
     $other = workspace();
     $stranger = Teams::ownersOf($other)->first();
     Project::factory()->for($other)->create(['name' => 'Not theirs']);
+    $workspace->createToken('Zapier', ['projects:read']);
+    $other->createToken('Not theirs either');
 
     $export = exported(DataExport::download(DataExport::forWorkspace($workspace->fresh()), 'acme.json'));
 
@@ -74,6 +76,8 @@ it('exports everything a workspace holds, and nothing of another', function () {
         ->and($export['feature_overrides'][0])->toMatchArray(['feature' => 'projects'])
         ->and(collect($export['activity'])->pluck('description'))->toContain('Invited nina@example.com as Member')
         ->and(collect($export['activity'])->pluck('description'))->not->toContain("{$stranger->name} joined as Owner")
+        ->and($export['api_tokens'])->toHaveCount(1)
+        ->and($export['api_tokens'][0])->toMatchArray(['name' => 'Zapier', 'abilities' => ['projects:read']])->not->toHaveKey('token')
         ->and($export['projects'])->toHaveCount(3)
         ->and(collect($export['projects'])->pluck('name'))->not->toContain('Not theirs')
         ->and($export['projects'][0])->toHaveKeys(['id', 'name', 'status'])->not->toHaveKey('workspace_id');

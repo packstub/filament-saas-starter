@@ -31,7 +31,9 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - Delete account on the Profile page, behind the password; workspaces only that person used go with it, and audit logs keep what happened without their name or e-mail address
 - Download your data (Profile page) and Export workspace data (Workspace settings, owners), each as one JSON file
 - After Transfer ownership, Stripe's receipts and billing e-mails go to the new owner
-- A workspace audit log of members, roles, invitations, ownership, plan changes and deletion, on an Activity page for owners and admins
+- API tokens per workspace, with abilities and an expiry, created and revoked by owners and admins on an API tokens page
+- A REST API at `/api/v1` for projects, scoped to the token's workspace, with the plan's limits and a rate limit per token
+- A workspace audit log of members, roles, invitations, ownership, plan changes, API tokens and deletion, on an Activity page for owners and admins
 - Activity in the admin panel: every workspace's audit log, deleted workspaces and support logins included
 - A landing page with features, a FAQ and pricing generated from your plans (monthly and yearly, with the free trial), in light and dark mode
 - Meta and link-preview tags, a sitemap and a robots.txt that keeps staging copies out of search engines, and Terms and Privacy placeholders to replace

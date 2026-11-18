@@ -2,15 +2,20 @@
 
 namespace App\Providers;
 
+use App\Models\ApiToken;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Support\WorkspacePermissions;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Cashier\Cashier;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -24,6 +29,13 @@ class AppServiceProvider extends ServiceProvider
     {
         // Subscriptions belong to the workspace: one bill however many members it has.
         Cashier::useCustomerModel(Workspace::class);
+
+        // API tokens belong to a workspace and remember who created them.
+        Sanctum::usePersonalAccessTokenModel(ApiToken::class);
+
+        // The API's rate limit, per token: a busy integration slows only itself down.
+        RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinute(60)
+            ->by($request->user()?->currentAccessToken()?->getKey() ?? $request->ip()));
 
         // Short names instead of class names in polymorphic columns (notifications,
         // feature overrides), so a model can be renamed or moved without touching data.

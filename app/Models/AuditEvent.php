@@ -147,6 +147,8 @@ class AuditEvent extends Model
             AuditEventType::InvitationSent => isset($p['email']) ? "Invited {$p['email']} as {$p['role']}" : "Created an invitation link for {$p['role']}",
             AuditEventType::InvitationAccepted => "{$p['name']} accepted an invitation",
             AuditEventType::OwnershipTransferred => "Ownership moved from {$p['from']} to {$p['to']}",
+            AuditEventType::ApiTokenCreated => "Created the API token {$p['name']} (".implode(', ', $p['abilities'] ?? []).')',
+            AuditEventType::ApiTokenRevoked => "Revoked the API token {$p['name']}",
             AuditEventType::PlanChanged => "Plan changed from {$p['from']} to {$p['to']}",
             AuditEventType::WorkspaceDeleted => "Deleted the workspace {$this->workspace_name}",
         };

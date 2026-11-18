@@ -11,6 +11,7 @@ Free and open source, under the MIT license.
 - **[Team members](#members-and-invitations)**: invitations by e-mail or link, the roles Owner, Admin and Member, and seats counted against the plan.
 - **[Plans and limits](#plans-and-limits)**: Free, Pro and Business in one config file, a **Your plan** page with usage, and overrides for a single workspace.
 - **[Billing](#billing-with-stripe)**: Stripe Checkout and the customer portal through Laravel Cashier, monthly and yearly prices, a free trial and optional per-seat pricing, with a webhook that puts the workspace on the plan it pays for.
+- **[An API](#api-tokens-and-the-api)**: API tokens per workspace with abilities and expiry, and a versioned REST API for projects that respects the plan's limits.
 - **[Audit log](#audit-log)**: who joined, left, changed role, was invited or took over a workspace, and every plan change, on an Activity page for owners and admins.
 - **[Revenue metrics](#revenue-metrics)**: MRR, paying subscriptions, trials, churn, sign-ups and plans on the admin dashboard, read from your own database.
 - **[Support logins](#support-logins)**: an admin panel where you sign in as a customer to see what they see, with a log of every switch and every workspace's activity.
@@ -133,11 +134,11 @@ Read more in the [Filament Teams docs](https://packstub.dev/docs/filament-teams)
 
 Plans and the features they include are defined once, in `config/packstub-features.php`:
 
-| Plan | Projects | Seats | Priority support |
-| --- | --- | --- | --- |
-| Free | 3 | 2 | |
-| Pro | 50 | 10 | |
-| Business | Unlimited | Unlimited | Included |
+| Plan | Projects | Seats | API access | Priority support |
+| --- | --- | --- | --- | --- |
+| Free | 3 | 2 | | |
+| Pro | 50 | 10 | Included | |
+| Business | Unlimited | Unlimited | Included | Included |
 
 A workspace's plan is its `plan` column. Filament Features reads it and answers the questions your code asks:
 
@@ -213,9 +214,29 @@ In production, set `STRIPE_WEBHOOK_SECRET` before taking payments. Cashier verif
 
 The amounts people see (`$29/mo`, `$290/yr`) are text next to each price in `config/billing.php`. Keep them in step with your Stripe prices. Read more in the [Laravel Cashier docs](https://laravel.com/docs/billing).
 
+### API tokens and the API
+
+**API tokens**, in the `app` panel, lets owners and admins create tokens for their scripts and integrations: a name, what the token may do (read projects, create projects) and when it expires (30 days, 90 days, a year or never). The token is shown once, right after it is created; only its hash is stored. **Revoke** stops it at once. Creating and revoking are in the [audit log](#audit-log).
+
+- Tokens are [Laravel Sanctum](https://laravel.com/docs/sanctum) personal access tokens whose owner is the **workspace**, not a person (`HasApiTokens` on `Workspace`, `App\Models\ApiToken`). A token keeps working after the person who created it leaves, and the table shows who that was. Deleting a workspace deletes its tokens.
+- The API lives in `routes/api.php` under `/api/v1`, with `app/Http/Controllers/Api/V1/ProjectController.php` as the example: list (`GET /api/v1/projects`, paginated), show (`GET /api/v1/projects/{id}`) and create (`POST /api/v1/projects`). A request authenticates as the workspace (`$request->user()` is the `Workspace`), so every query starts from it and another workspace's records are out of reach.
+- Each route names the ability it needs (`abilities:projects:read`); add yours to `ApiToken::ABILITIES` and they appear on the page.
+- The API is a plan feature, `api_access` in `config/packstub-features.php` (Pro and Business). On a plan without it the page offers an upgrade, and the API answers 403, also for tokens created before a downgrade (`app/Http/Middleware/EnsureWorkspaceHasApiAccess.php`).
+- Creating a project goes through `App\Actions\CreateProject`, so the plan's `projects` limit holds: the API answers 403 with the limit and an `upgrade_url`.
+- Each token may make 60 requests a minute (the `api` rate limiter in `AppServiceProvider`). Errors are JSON, whatever the client asks for.
+- The API answers to tokens only, never to a signed-in browser session (`guard` is empty in `config/sanctum.php`).
+- Expired tokens are deleted a day after they expire (`sanctum:prune-expired`, scheduled daily).
+
+```bash
+curl https://my-app.test/api/v1/projects -H "Authorization: Bearer 1|..."
+curl https://my-app.test/api/v1/projects -H "Authorization: Bearer 1|..." -d name="Website relaunch"
+```
+
+The `personal_access_tokens` table is central, like billing: a request names no workspace until its token has been read.
+
 ### Audit log
 
-Every workspace keeps a log of what happened in it: members who joined, left or changed role, invitations sent and accepted, ownership transfers, plan changes (from Stripe, from the admin panel or from the code) and the workspace's deletion. **Activity**, in the `app` panel, shows it to owners and admins, with a filter by kind. In `/admin`, **Activity** lists every workspace's entries, deleted workspaces included, with filters by kind, by workspace and for what happened during a support login; **Activity** on a row of **Workspaces** opens that workspace's entries.
+Every workspace keeps a log of what happened in it: members who joined, left or changed role, invitations sent and accepted, ownership transfers, plan changes (from Stripe, from the admin panel or from the code), API tokens created and revoked, and the workspace's deletion. **Activity**, in the `app` panel, shows it to owners and admins, with a filter by kind. In `/admin`, **Activity** lists every workspace's entries, deleted workspaces included, with filters by kind, by workspace and for what happened during a support login; **Activity** on a row of **Workspaces** opens that workspace's entries.
 
 - `app/Models/AuditEvent.php` is an entry, and `AuditEvent::record($workspace, AuditEventType::…, [...])` writes one. Its kinds, with their labels, colours and icons, are `app/Enums/AuditEventType.php`.
 - `app/Listeners/RecordWorkspaceActivity.php` turns Filament Teams' membership events into entries; `Workspace::changePlan()` and the model's `deleted` hook write the plan changes and the deletion.
@@ -301,6 +322,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `SeatBillingTest`: per-seat plans: Checkout with a seat per member, the quantity following members who join, leave or accept an invitation, flat plans left alone, Stripe errors, a quantity put right by the next webhook.
 - `BillingPageTest`: the Billing page by role, with and without Stripe keys, monthly and yearly prices, the free trial, Checkout, switching plans and intervals, the customer portal, a past-due subscription, a subscription paused after its trial and resumed, and a payment that needs confirming.
 - `AuditLogTest`: what is recorded and by whom (a support login included), plan changes from Stripe and from the admin panel, a deleted workspace and deleted people, pruning, the Activity page by role and by workspace.
+- `ApiTokenTest`: the API stays inside the token's workspace (lists, by id, creating), validation, the plan's project limit, plans without API access, abilities, missing, wrong, revoked and expired tokens, no browser sessions, the rate limit per token; the API tokens page by role, creating a token shown once, revoking, other workspaces' tokens, the upgrade on the Free plan, deleting a workspace.
 - `RevenueMetricsTest`: MRR from monthly, yearly and per-seat prices, what is left out (trials, ended, unknown prices), churn, plans, sign-ups per day, plan changes, the cache, the dashboard for admins only, no calls to Stripe.
 - `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables, the Activity of every workspace.
 - `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping (invitations, overrides, the audit log) is scheduled.

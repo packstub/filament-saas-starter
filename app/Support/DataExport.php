@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Models\ApiToken;
 use App\Models\AuditEvent;
 use App\Models\Project;
 use App\Models\User;
@@ -113,6 +114,15 @@ final class DataExport
                 'feature' => $override->getAttribute('feature'),
                 'value' => $override->getAttribute('value'),
                 'expires_at' => self::date($override->getAttribute('expires_at')),
+            ])->all(),
+            // What each token may do and who made it; never the token or its hash.
+            'api_tokens' => $workspace->tokens()->oldest('id')->get()->map(fn (ApiToken $token): array => [
+                'name' => $token->name,
+                'abilities' => $token->abilities,
+                'created_by' => $token->getAttribute('created_by_name'),
+                'last_used_at' => self::date($token->last_used_at),
+                'expires_at' => self::date($token->expires_at),
+                'created_at' => self::date($token->created_at),
             ])->all(),
             'activity' => AuditEvent::query()->where('workspace_id', $workspace->getKey())->lazyById(500)
                 ->map(fn (AuditEvent $event): array => [
