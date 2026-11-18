@@ -127,6 +127,8 @@ Forge and Ploi issue Let's Encrypt certificates. Behind a load balancer or Cloud
 $middleware->trustProxies(at: '*');   // or the load balancer's addresses
 ```
 
+`'*'` is safe only when the server takes traffic from the proxy alone (a firewall that allows only the load balancer, or [Cloudflare's addresses](https://www.cloudflare.com/ips/)). If the server can also be reached directly, anyone can send `X-Forwarded-For` and pass for another address, and the sign-in and API rate limits key on it: list the proxy's addresses instead of `'*'`.
+
 ## 8. Stripe and the first admin
 
 Create the live webhook with `php artisan cashier:webhook` on the server (it uses `APP_URL` and `STRIPE_SECRET`), put its signing secret in `STRIPE_WEBHOOK_SECRET`, run `php artisan optimize` again. Make yourself an admin after signing up:

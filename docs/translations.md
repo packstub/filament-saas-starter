@@ -27,6 +27,11 @@ Filament Teams (Members, Invitations, the invitation e-mail), Filament Features 
 
 The plan names and descriptions in `config/packstub-features.php` and the tagline and description in `config/site.php` are configuration, in one language. For a multilingual site, put a translation key there and print it with `__()`.
 
+## What stays as it was written
+
+- Names kept in the database stay in the language they were written in: an audit log entry about a deleted person says "Deleted user" (`AuditEvent::DELETED_USER`), and the role and ability keys in an entry (`member`, `projects:read`) are shown as stored.
+- The answer to an unsigned Stripe webhook in production is for Stripe, in English.
+
 ## Adding a language
 
 French as the example:

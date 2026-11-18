@@ -29,8 +29,8 @@ Go through it before the first real customer signs up, and again after a big cha
 
 ## Queue and scheduler
 
-- [ ] `QUEUE_CONNECTION` is not `sync`, and a worker runs: `php artisan queue:monitor default` (or Cloud's queue view) shows it draining.
-- [ ] `php artisan queue:failed` is empty after the e-mail checks above.
+- [ ] `QUEUE_CONNECTION` is not `sync`, and a worker runs: on a server, `php artisan queue:monitor default` shows the queue draining; on Laravel Cloud's managed queues, the **Queues** dashboard does (the `queue:*` commands do not reach managed queues).
+- [ ] No failed jobs after the e-mail checks above: `php artisan queue:failed` on a server, the **Queues** dashboard's failed jobs on Laravel Cloud.
 - [ ] The scheduler runs every minute: `php artisan schedule:list` shows the daily tasks with a next run time, and they ran yesterday (Cloud: the scheduler toggle is on).
 
 ## Stripe
