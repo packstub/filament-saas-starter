@@ -38,11 +38,12 @@ final class StripePrices
     }
 
     /**
-     * What people see for a plan at an interval ("$29/mo"), if it is sold so.
+     * What people see for a plan at an interval ("$29/mo"). Shown before the
+     * Stripe price is set too, so a new install still shows its pricing.
      */
     public static function amount(string $plan, string $interval): ?string
     {
-        return self::for($plan, $interval) === null ? null : config("billing.plans.{$plan}.{$interval}.amount");
+        return config("billing.plans.{$plan}.{$interval}.amount");
     }
 
     /**

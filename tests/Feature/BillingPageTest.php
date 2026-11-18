@@ -65,11 +65,14 @@ it('refuses every action to someone who lost their role while the page was open'
     'resume' => ['resume', []],
 ]);
 
-it('explains how to add Stripe keys when there are none', function () {
+it('explains how to add Stripe keys when there are none, and shows the prices all the same', function () {
+    config()->set('billing.plans.pro.monthly.price', null);
+
     actingAs(Teams::ownersOf($this->workspace)->first())
         ->get("/app/{$this->workspace->slug}/billing")
         ->assertOk()
         ->assertSee('Add your Stripe keys')
+        ->assertSee('$29/mo')
         ->assertSee('STRIPE_SECRET')
         ->assertSee('Current plan')
         ->assertDontSee('Choose Pro');
@@ -494,7 +497,8 @@ it('sells a plan monthly only when it has no yearly price', function () {
     config()->set('billing.plans.pro.yearly.price', null);
 
     expect(StripePrices::for('pro', 'yearly'))->toBeNull()
-        ->and(StripePrices::amount('pro', 'yearly'))->toBeNull()
+        // The amount is text for people, shown whether or not Stripe has the price yet.
+        ->and(StripePrices::amount('pro', 'yearly'))->toBe('$290/yr')
         ->and(StripePrices::for('business', 'yearly'))->toBe('price_business_yearly')
         ->and(StripePrices::intervals())->toBe(['monthly', 'yearly']);
 
