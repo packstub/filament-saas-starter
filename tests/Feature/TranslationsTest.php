@@ -1,9 +1,11 @@
 <?php
 
+use App\Filament\Admin\Resources\Users\Pages\ManageUsers;
 use App\Filament\App\Pages\Auth\EditProfile;
 use App\Models\User;
 use App\Notifications\AccountDeleted;
 use App\Support\Locales;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
@@ -12,6 +14,7 @@ use Packstub\Teams\Facades\Teams;
 
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
+use function Pest\Laravel\post;
 use function Pest\Livewire\livewire;
 
 // The home page loads its built CSS; the suite runs without `npm run build`.
@@ -84,7 +87,7 @@ it('speaks the language a signed-in person chose', function () {
 });
 
 it('speaks the language picked on the home page before signing in', function () {
-    get('/locale/es')->assertRedirect();
+    post('/locale/es')->assertRedirect();
 
     expect(session('locale'))->toBe('es');
 
@@ -94,13 +97,13 @@ it('speaks the language picked on the home page before signing in', function () 
 it('makes the language picked on the home page a signed-in person\'s own', function () {
     $user = User::factory()->create(['locale' => 'es']);
 
-    actingAs($user)->get('/locale/en')->assertRedirect();
+    actingAs($user)->post('/locale/en')->assertRedirect();
 
     expect($user->fresh()->locale)->toBe('en');
 });
 
 it('refuses a language it does not speak', function () {
-    get('/locale/xx')->assertNotFound();
+    post('/locale/xx')->assertNotFound();
 });
 
 it('saves the language on the Profile page and opens the page again in it', function () {
@@ -129,4 +132,35 @@ it('sends e-mails in the language of the person they go to', function () {
     Notification::assertSentOnDemand(AccountDeleted::class, fn (AccountDeleted $notice, array $channels, AnonymousNotifiable $notifiable): bool => $notice->locale === 'es');
 
     expect($user->preferredLocale())->toBe('es');
+});
+
+it('switches the language only by a form with a CSRF token, never by a link', function () {
+    // A GET would let any other site switch someone's language with an <img>.
+    get('/locale/es')->assertMethodNotAllowed();
+
+    expect(app('router')->getRoutes()->getByName('locale')->gatherMiddleware())->toContain('web');
+
+    get('/')->assertOk()->assertSee('action="'.route('locale', 'es').'"', false)->assertSee('name="_token"', false);
+});
+
+it('keeps a customer\'s own language during a support login', function () {
+    $workspace = workspace();
+    $owner = Teams::ownersOf($workspace)->first();
+    $owner->update(['locale' => 'en']);
+
+    inAdminPanel();
+    livewire(ManageUsers::class)->callAction(TestAction::make('impersonate')->table($owner));
+
+    post('/locale/es')->assertRedirect();
+
+    expect($owner->fresh()->locale)->toBe('en');
+});
+
+it('ignores a language it does not speak, wherever it comes from', function () {
+    $user = User::factory()->create();
+    $user->forceFill(['locale' => 'xx'])->saveQuietly();
+
+    actingAs($user)->withSession(['locale' => 'yy'])->get('/')->assertOk()->assertSee('lang="en"', false);
+
+    expect($user->fresh()->preferredLocale())->toBeNull();
 });

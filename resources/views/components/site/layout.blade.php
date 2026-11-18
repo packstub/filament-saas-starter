@@ -98,7 +98,10 @@
                         @if ($code === app()->getLocale())
                             <span aria-current="true" class="font-medium text-slate-900 dark:text-white">{{ $name }}</span>
                         @else
-                            <a href="{{ route('locale', $code) }}" lang="{{ $code }}" hreflang="{{ $code }}" class="hover:text-slate-900 dark:hover:text-white">{{ $name }}</a>
+                            <form method="POST" action="{{ route('locale', $code) }}">
+                                @csrf
+                                <button type="submit" lang="{{ $code }}" class="cursor-pointer hover:text-slate-900 dark:hover:text-white">{{ $name }}</button>
+                            </form>
                         @endif
                     @endforeach
                 </nav>

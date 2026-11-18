@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Events\AccountDeleting;
+use App\Support\Locales;
 use App\Support\Uploads;
 use App\Support\WorkspacePermissions;
 use Database\Factories\UserFactory;
@@ -93,7 +94,8 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
      */
     public function preferredLocale(): ?string
     {
-        return $this->locale;
+        // A language taken out of config/app.php since they chose it falls back to the default.
+        return Locales::supports($this->locale) ? $this->locale : null;
     }
 
     /**

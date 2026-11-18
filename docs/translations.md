@@ -5,7 +5,7 @@ The app speaks English and Spanish out of the box. Everything the kit itself say
 ## How a language is chosen
 
 1. A signed-in person's **Language** on the **Profile** page (`users.locale`). Their e-mails and notifications use it too: `User::preferredLocale()`, Laravel's `HasLocalePreference`.
-2. Before signing in, the language picked in the home page's footer (`/locale/{locale}`, kept in the session for the visit; for someone signed in, it becomes their Profile's language).
+2. Before signing in, the language picked in the home page's footer (a form posting to `/locale/{locale}`, kept in the session for the visit; for someone signed in, it becomes their Profile's language, except during a support login).
 3. Otherwise `APP_LOCALE`.
 
 `App\Http\Middleware\SetLocale` applies it, on the web routes and in both panels. An e-mail to an address without an account, such as an invitation, is written in `APP_LOCALE` once a queue worker sends it.
