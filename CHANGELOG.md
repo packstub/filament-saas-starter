@@ -45,6 +45,7 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - Meta and link-preview tags, a sitemap and a robots.txt that keeps staging copies out of search engines, and Terms and Privacy placeholders to replace
 - Revenue metrics on the admin dashboard: MRR, paying subscriptions, trials, churn, sign-ups and plans, without calling Stripe
 - Ready for coding agents: Laravel Boost as a dev dependency, guidelines in `.ai/guidelines` (architecture, workspace tables, billing, testing, extending, what never to do), a skill for adding a workspace resource, and a test that keeps them true to the code
+- Deploy guides for Laravel Cloud and for your own server (Forge, Ploi), a reference of every environment variable, and a production checklist
 - Demo accounts with one-click logins in the local environment, never seeded in production
 - Strict Eloquent models outside production, so an N+1 query fails while you develop
 - A Pest suite with architecture tests, and GitHub Actions for PHP 8.3, 8.4 and 8.5

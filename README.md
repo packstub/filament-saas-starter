@@ -396,6 +396,15 @@ The kit leaves out what only some products need. Each of these is a short recipe
 
 Four things in the kit keep the recipes short: the plugin lists in `app/Filament/Plugins.php`, the `App\Events\WorkspaceDeleting` and `App\Events\AccountDeleting` events a module cleans up in, the one-value-per-line plans in `config/packstub-features.php`, and `TableRulesTest`, which makes each module say where its tables live.
 
+## Deploying
+
+The app needs a MySQL or PostgreSQL database, a queue worker, the scheduler and a mail provider in production, and a Stripe webhook once you sell plans. The guides in [`docs/deploy`](docs/deploy) walk through each host:
+
+- [Laravel Cloud](docs/deploy/laravel-cloud.md): build and deploy commands, a managed queue, the scheduler toggle, buckets for uploads, secrets, your domain and the live Stripe webhook.
+- [Your own server](docs/deploy/server.md), with Forge, Ploi or by hand: the deploy script, a Supervisor worker (and when Horizon is worth it), the cron entry, Redis, files and backups.
+- [Environment variables](docs/deploy/environment.md): every value the app reads, and what it should be in production.
+- [Production checklist](docs/deploy/production-checklist.md): what to check before the first customer, from `APP_DEBUG` to two-factor authentication for every admin.
+
 ## Going further
 
 ### A database per workspace
