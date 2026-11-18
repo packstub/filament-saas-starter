@@ -16,6 +16,8 @@
 /.github/workflows/add-to-project.yml export-ignore
 /.github/workflows/dependabot-auto-merge.yml export-ignore
 /.github/workflows/github-release.yml export-ignore
+/.github/workflows/modules.yml export-ignore
 /CHANGELOG.md export-ignore
 /RELEASING.md export-ignore
 /SECURITY.md export-ignore
+/scripts export-ignore
