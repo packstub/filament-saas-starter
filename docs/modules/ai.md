@@ -36,6 +36,11 @@ The engine also serves the tools to Claude Code, Cursor and other MCP clients. T
 AGENT_MCP_ENABLED=false
 ```
 
+```dotenv append=.env.example
+# Agents: the in-panel chat only; no MCP endpoint.
+AGENT_MCP_ENABLED=false
+```
+
 ## 2. The assistant and its first tool
 
 The assistant, `app/Ai/Agents/Assistant.php`:
@@ -146,8 +151,10 @@ A plan feature says how many credits a workspace gets each month. In `config/pac
 ```
 
 ```php in=config/packstub-features.php after="'plans' => [|'business' =>|'seats' =>"
-'ai_credits' => 100_000,
+'ai_credits' => null,
 ```
+
+`null` is unlimited, as for projects and seats: no allowance, nothing metered, never refused (the engine's own limits below still apply).
 
 What an answer costs, in `config/packstub-credits.php` (one credit per thousand tokens read, five per thousand written; set them from your provider's prices and your margin):
 
@@ -181,7 +188,8 @@ use Packstub\Features\Facades\Features;
 ```php in=app/Providers/AppServiceProvider.php after="function boot()|Model::shouldBeStrict("
 
 // Each workspace's monthly AI credits come from its plan (the `ai_credits` feature).
-Credits::allowancesUsing(fn (Workspace $workspace, string $wallet): array => ($credits = (int) Features::limit('ai_credits', $workspace)) > 0
+// Unlimited (null) needs no allowance: the assistant does not meter it.
+Credits::allowancesUsing(fn (Workspace $workspace, string $wallet): array => ($credits = Features::limit('ai_credits', $workspace)) > 0
     ? [Allowance::monthly($credits)]
     : []);
 ```
@@ -189,7 +197,9 @@ Credits::allowancesUsing(fn (Workspace $workspace, string $wallet): array => ($c
 **Your plan** shows what is used this month, in `app/Support/Plans.php`:
 
 ```php in=app/Support/Plans.php after="->usage('seats',"
-->usage('ai_credits', fn (?Workspace $workspace): int => $workspace ? max(0, (int) Features::limit('ai_credits', $workspace) - $workspace->credits()->available()) : 0)
+// This month's allowance minus what is left: close enough for the plan page. Credits bought on top, or a
+// plan changed mid-month, make it approximate; read the ledger (credit_transactions) for exact figures.
+->usage('ai_credits', fn (?Workspace $workspace): int => $workspace && ($limit = Features::limit('ai_credits', $workspace)) !== null ? max(0, $limit - $workspace->credits()->available()) : 0)
 ```
 
 ```php use=app/Support/Plans.php
@@ -209,6 +219,7 @@ use Laravel\Ai\Gateway\StepResponse;
 use Laravel\Ai\PendingStep;
 use Packstub\Agents\Exceptions\TurnRefused;
 use Packstub\Agents\Facades\Agents;
+use Packstub\Features\Facades\Features;
 
 /**
  * The assistant spends the workspace's AI credits: a question needs some
@@ -222,7 +233,8 @@ class ChargeAiCredits
     {
         $workspace = Agents::tenant();
 
-        if (! $workspace instanceof Workspace) {
+        // Outside a workspace, or on a plan with unlimited AI credits (null): nothing to meter.
+        if (! $workspace instanceof Workspace || Features::limit('ai_credits', $workspace) === null) {
             return $next($step);
         }
 
@@ -386,17 +398,35 @@ class ForgetAssistantData
 
 Filament 5 builds a plugin's styles into the panel's own theme, and the kit's panels use Filament's default one. Make a theme for the app panel once:
 
-```bash
-php artisan make:filament-theme app
+```bash run
+php artisan make:filament-theme app --pm=npm --skip-install --skip-build --no-interaction
 ```
 
-Add `resources/css/filament/app/theme.css` to `input` in `vite.config.js`, call `->viteTheme('resources/css/filament/app/theme.css')` in `AppPanelProvider`, and point the theme at the plugin's views:
+It writes `resources/css/filament/app/theme.css`, adds it to `input` in `vite.config.js` and calls `->viteTheme()` in `AppPanelProvider`. Point the theme at the plugin's views:
 
-```css
+```css append=resources/css/filament/app/theme.css
 @source '../../../../vendor/packstub/filament-agents/resources/views';
 ```
 
-Then `npm run build`. The tests render the panel too, so CI needs the built assets from then on: add `npm ci` and `npm run build` before the tests in `.github/workflows/tests.yml`.
+From now on every page of the panel needs the built assets, the tests included. Build them:
+
+```bash run
+npm ci --no-audit --no-fund
+npm run build
+```
+
+and in CI, before the tests in `.github/workflows/tests.yml`:
+
+```yaml in=.github/workflows/tests.yml before="name: Tests (PHP|- name: Check code style" indent=6
+- name: Setup Node 22
+  uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+  with:
+    node-version: 22
+    cache: npm
+
+- name: Build the front-end assets
+  run: npm ci --no-audit --no-fund && npm run build
+```
 
 ## 8. Schedule the housekeeping
 
@@ -408,7 +438,28 @@ Schedule::command('model:prune', ['--model' => [Packstub\Agents\Models\AgentTurn
 Schedule::command('credits:expire')->hourly();
 ```
 
-## 9. Test it
+## 9. Put a person's chats in their data export
+
+In `app/Support/DataExport.php`:
+
+```php use=app/Support/DataExport.php
+use Illuminate\Support\Facades\DB;
+```
+
+at the end of the array `forUser()` returns:
+
+```php in=app/Support/DataExport.php before="function forUser(|        ];" indent=12
+// The AI assistant: this person's chats, question by answer.
+'assistant_chats' => DB::table('agent_conversations')
+    ->where('participant_type', $user->getMorphClass())->where('participant_id', $user->getKey())->oldest()->get()
+    ->map(fn (object $chat): array => [
+        'title' => $chat->title,
+        'messages' => DB::table('agent_conversation_messages')->where('conversation_id', $chat->id)->oldest()
+            ->get(['role', 'content', 'created_at'])->map(fn (object $message): array => (array) $message)->all(),
+    ])->all(),
+```
+
+## 10. Test it
 
 `tests/Feature/Modules/AssistantTest.php`. The model is faked; never call a provider from a test:
 
@@ -436,8 +487,19 @@ it('gives each workspace its plan\'s AI credits every month', function (string $
 })->with([
     ['free', 200],
     ['pro', 20_000],
-    ['business', 100_000],
 ]);
+
+it('neither meters nor refuses a workspace with unlimited AI credits', function () {
+    $workspace = workspace('business');
+    $member = inWorkspace($workspace);
+
+    AgentEval::as($member)->in($workspace)
+        ->expecting([new TextResponse('Hi.', new TextUsage(inputTokens: 50_000, outputTokens: 10_000), new Meta('anthropic', 'test'))])
+        ->ask('Hello?')
+        ->assertOk();
+
+    expect(DB::table('credit_transactions')->count())->toBe(0);
+});
 
 it('answers from the workspace\'s own projects and charges the answer', function () {
     $workspace = workspace('pro');
@@ -479,8 +541,21 @@ it('forgets a deleted workspace\'s chats and credits', function () {
     $owner->deleteAccount();
 
     expect(DB::table('agent_conversations')->count())->toBe(0)
+        ->and(DB::table('agent_conversation_messages')->count())->toBe(0)
         ->and(DB::table('agent_turns')->count())->toBe(0)
-        ->and(DB::table('credit_wallets')->count())->toBe(0);
+        ->and(rowsLeftOf($workspace))->toBe([]);
+});
+
+it('puts a person\'s chats in their data export', function () {
+    $workspace = workspace('pro');
+    $member = inWorkspace($workspace, memberOf($workspace, 'member'));
+
+    AgentEval::as($member)->in($workspace)->expecting(['Hi there.'])->ask('Hello?')->assertOk();
+
+    $chats = App\Support\DataExport::forUser($member)['assistant_chats'];
+
+    expect($chats)->toHaveCount(1)
+        ->and(collect($chats[0]['messages'])->pluck('content')->all())->toContain('Hi there.');
 });
 ```
 
@@ -499,6 +574,8 @@ Two tables groups, two answers:
 ## Going further
 
 - **MCP clients** (Claude Code, Cursor): the engine serves the same tools over MCP with personal tokens. Turn it on with `AGENT_MCP_ENABLED=true`, `mcp.path` set to `mcp/{tenant}`, `HasApiTokens` on `User` and `->agentAccess()` on the plugin. The kit's `/api/v1` expects workspace tokens, so check that a person's token is refused there before you ship it. See [MCP clients](https://github.com/packstub/filament-agents/blob/main/docs/mcp-clients.md).
+- **Flow's Ask AI** (with the [Flow recipe](flow.md)) calls the model outside the chat, so `ChargeAiCredits` does not see it: meter it in a listener of laravel/ai's `AgentPrompted`, as Credits' [Holds and AI calls](https://github.com/packstub/credits/blob/main/docs/holds.md#with-laravelai) shows, or keep it off with `->without([AskAi::class])`.
+- **People who leave a workspace** keep their chats with it until the workspace or their account is deleted; add a listener of Filament Teams' member-removed event if they should go sooner.
 - **A workspace's own key**: `->credentialsUsing()` lets a workspace bring its own provider key, which then pays instead of your credits. See [Tenancy](https://github.com/packstub/filament-agents/blob/main/docs/tenancy.md#a-workspaces-own-key).
 
 ## Removing it
