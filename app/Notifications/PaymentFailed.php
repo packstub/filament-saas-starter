@@ -48,7 +48,8 @@ class PaymentFailed extends Notification implements ShouldQueue
     {
         return FilamentNotification::make()
             ->danger()
-            ->title(__('mail.payment_failed.database_title', ['workspace' => $this->workspace->name]))
+            // Filament renders the title as (sanitized) HTML: the name is text.
+            ->title(__('mail.payment_failed.database_title', ['workspace' => e($this->workspace->name)]))
             ->body(__('mail.payment_failed.database_body'))
             ->actions([
                 Action::make('billing')->label(__('mail.payment_failed.database_action'))->url($this->billingUrl())->markAsRead(),

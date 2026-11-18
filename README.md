@@ -133,7 +133,7 @@ Workspace logos and profile pictures are Filament file uploads, set up in `confi
 
 ### E-mails
 
-Every e-mail the app sends, Filament's verification and password reset included, uses one layout: `resources/views/vendor/mail/html/message.blade.php` with the `saas` theme (`html/themes/saas.css`, Laravel's default in the panel's Indigo; `markdown` in `config/mail.php`). The top shows `APP_NAME`, or the workspace's name and **Logo** when the e-mail is about a workspace; the bottom shows `SITE_COMPANY` and `SITE_CONTACT_EMAIL`. Change the colours in the theme, the wording in the views.
+Every e-mail the app sends, Filament's verification and password reset included, uses one layout: `resources/views/vendor/mail/html/message.blade.php` with the `saas` theme (`html/themes/saas.css`, Laravel's default in the panel's Indigo; `markdown` in `config/mail.php`). The top shows `APP_NAME`, or the workspace's name and **Logo** when the e-mail is about a workspace; the bottom shows `SITE_COMPANY` and `SITE_CONTACT_EMAIL`. Change the colours in the theme, the wording in the views. Names people choose (a workspace's, a person's) appear in these e-mails, so `AppServiceProvider` turns on `Markdown::withSecuredEncoding()`: Markdown inside a `{{ }}` is printed as text, and a workspace called `[Verify](https://…)` never becomes a link. Keep links and other Markdown in the view, outside `{{ }}`.
 
 | E-mail | Sent to | From |
 | --- | --- | --- |

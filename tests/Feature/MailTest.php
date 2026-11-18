@@ -105,7 +105,10 @@ it('renders the failed payment notice with the workspace and a link to Billing',
         ->toContain(Storage::disk('public')->url($workspace->logo_path))
         ->toContain("/app/{$workspace->slug}/billing");
 
-    expect((new PaymentFailed($workspace))->toDatabase($owner))->toHaveKey('title', "The payment for {$workspace->name} failed");
+    // The bell's title is HTML: the name is escaped, so an apostrophe arrives as an entity.
+    $workspace->update(['name' => "O'Keefe Group"]);
+
+    expect((new PaymentFailed($workspace->fresh()))->toDatabase($owner))->toHaveKey('title', 'The payment for O&#039;Keefe Group failed');
 });
 
 it('tells every member that a workspace was deleted, and who deleted it', function () {
@@ -158,4 +161,31 @@ it('renders the deletion notices', function () {
 
     expect($workspace)->toContain('Acme was deleted')->toContain('Olivia Bennett deleted the workspace')
         ->and($account)->toContain('Your account was deleted')->toContain('help@projectly.test');
+});
+
+it('never turns Markdown in a name into a link in an e-mail', function (Closure $render) {
+    $evil = '[Verify your account](https://evil.example/x)';
+    $workspace = workspace('pro');
+    $workspace->update(['name' => $evil]);
+    $owner = Teams::ownersOf($workspace)->first();
+    $owner->update(['name' => $evil]);
+
+    $html = (string) $render($workspace->fresh(), $owner->fresh());
+
+    expect($html)->not->toContain('href="https://evil.example')
+        ->and($html)->toContain('Verify your account');
+})->with([
+    'the invitation' => [fn (Workspace $workspace, User $owner) => (new TeamInvitationMail(Teams::invite($workspace, 'nina@example.com', 'member', $owner, send: false)))->render()],
+    'the failed payment notice' => [fn (Workspace $workspace, User $owner) => (new PaymentFailed($workspace))->toMail($owner)->render()],
+    'the workspace deletion notice' => [fn (Workspace $workspace, User $owner) => (new WorkspaceDeleted($workspace->name, $owner->name))->toMail(new AnonymousNotifiable)->render()],
+    'the account deletion notice' => [fn (Workspace $workspace, User $owner) => (new AccountDeleted($owner->name))->toMail(new AnonymousNotifiable)->render()],
+]);
+
+it('shows a workspace name in the bell as text, never as a link', function () {
+    $workspace = workspace('pro');
+    $workspace->update(['name' => '<a href="https://evil.example">Fix billing</a>']);
+
+    $title = (new PaymentFailed($workspace->fresh()))->toDatabase(Teams::ownersOf($workspace)->first())['title'];
+
+    expect($title)->not->toContain('<a ')->toContain('&lt;a href');
 });

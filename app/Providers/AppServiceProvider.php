@@ -11,6 +11,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
+use Illuminate\Mail\Markdown;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -27,6 +28,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // E-mails print names people chose (a workspace, a person) inside Markdown: escape the
+        // Markdown in every {{ }}, so a name like "[Verify](https://…)" never becomes a link.
+        Markdown::withSecuredEncoding();
+
         // Subscriptions belong to the workspace: one bill however many members it has.
         Cashier::useCustomerModel(Workspace::class);
 

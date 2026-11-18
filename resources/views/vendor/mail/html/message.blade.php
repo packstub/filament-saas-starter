@@ -28,7 +28,7 @@
 <x-slot:footer>
 <x-mail::footer>
 @if ($workspace)
-{{ __('mail.sent_by', ['app' => '['.config('app.name').']('.config('app.url').')', 'workspace' => $workspace]) }}
+{{ __('mail.sent_by', ['app' => config('app.name'), 'workspace' => $workspace]) }}
 @endif
 © {{ date('Y') }} {{ config('site.company') }} · [{{ config('site.contact_email') }}](mailto:{{ config('site.contact_email') }})
 </x-mail::footer>
