@@ -5,11 +5,13 @@ namespace App\Filament\App\Pages;
 use App\Billing\StripePrices;
 use App\Models\Workspace;
 use BackedEnum;
+use Carbon\CarbonInterface;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Laravel\Cashier\Cashier;
 use Laravel\Cashier\Exceptions\IncompletePayment;
 use Packstub\Features\Facades\Features;
 use Packstub\Features\Support\Plan;
@@ -41,6 +43,9 @@ class Billing extends Page
 
     protected string $view = 'filament.app.pages.billing';
 
+    /** Monthly or yearly: which prices the plan cards show. */
+    public string $interval = 'monthly';
+
     public static function canAccess(): bool
     {
         $workspace = Filament::getTenant();
@@ -50,6 +55,9 @@ class Billing extends Page
 
     public function mount(): void
     {
+        // A yearly subscriber sees the yearly prices first.
+        $this->interval = $this->subscribedInterval() ?? StripePrices::intervals()[0] ?? 'monthly';
+
         // Stripe Checkout sends people back here; the plan itself changes when the webhook arrives.
         if (request()->query('checkout') === 'success') {
             Notification::make()
@@ -72,6 +80,7 @@ class Billing extends Page
 
     /**
      * The .env keys that still need a value before every plan can be sold.
+     * Monthly prices are needed; yearly ones are optional.
      *
      * @return list<string>
      */
@@ -81,28 +90,61 @@ class Billing extends Page
             'STRIPE_KEY' => blank(config('cashier.key')),
             'STRIPE_SECRET' => blank(config('cashier.secret')),
             'STRIPE_WEBHOOK_SECRET' => blank(config('cashier.webhook.secret')),
-            ...collect(config('billing.prices'))
-                ->mapWithKeys(fn (?string $price, string $plan): array => ['STRIPE_PRICE_'.strtoupper($plan) => blank($price)])
+            ...collect(config('billing.plans'))
+                ->mapWithKeys(fn (array $intervals, string $plan): array => ['STRIPE_PRICE_'.strtoupper($plan).'_MONTHLY' => StripePrices::for($plan, 'monthly') === null])
                 ->all(),
         ]));
     }
 
     /**
-     * @return list<array{key: string, label: string, description: ?string, price: ?string, lines: list<string>, current: bool, sold: bool}>
+     * The intervals to choose between, as interval => label; empty while
+     * every plan is sold at one interval only, so the switch stays hidden.
+     *
+     * @return array<string, string>
+     */
+    public function getIntervals(): array
+    {
+        $intervals = StripePrices::intervals();
+
+        return count($intervals) > 1 ? array_intersect_key(StripePrices::INTERVALS, array_flip($intervals)) : [];
+    }
+
+    /**
+     * @return list<array{key: string, label: string, description: ?string, price: ?string, lines: list<string>, current: bool, sold: bool, per_seat: bool}>
      */
     public function getPlans(): array
     {
         $current = Features::plan();
+        $interval = $this->selectedInterval();
+        $subscribed = $this->subscribedInterval();
 
         return array_values(array_map(fn (Plan $plan): array => [
             'key' => $plan->key,
             'label' => $plan->label,
             'description' => $plan->description,
-            'price' => $plan->price,
+            'price' => StripePrices::amount($plan->key, $interval) ?? $plan->price,
             'lines' => $this->describe($plan),
-            'current' => $plan->key === $current,
-            'sold' => StripePrices::for($plan->key) !== null,
+            // Pro billed monthly is not the current plan on the Yearly tab: it can be switched to.
+            'current' => $plan->key === $current && ($subscribed === null || $subscribed === $interval || StripePrices::for($plan->key, $interval) === null),
+            'sold' => StripePrices::for($plan->key, $interval) !== null,
+            'per_seat' => StripePrices::perSeat($plan->key),
         ], Features::plans()));
+    }
+
+    /**
+     * The interval the plan cards show: the one picked, if plans are sold at it.
+     */
+    public function selectedInterval(): string
+    {
+        return in_array($this->interval, StripePrices::intervals(), true) ? $this->interval : 'monthly';
+    }
+
+    /**
+     * The interval the workspace's subscription bills at, if it has one on a known price.
+     */
+    public function subscribedInterval(): ?string
+    {
+        return StripePrices::interval($this->workspace()->currentSubscription()?->stripe_price);
     }
 
     /**
@@ -178,6 +220,40 @@ class Billing extends Page
     }
 
     /**
+     * For a subscription Stripe paused after a trial without a card: once a
+     * card is on file (under "Manage billing"), Stripe resumes it and bills
+     * from today. Without a card Stripe refuses, and the page says so.
+     */
+    public function resumeAction(): Action
+    {
+        return Action::make('resume')
+            ->label('Resume subscription')
+            ->icon(Heroicon::OutlinedPlay)
+            ->authorize(fn (): bool => static::canAccess())
+            ->action(function () {
+                $subscription = $this->workspace()->currentSubscription();
+
+                if (! $this->isConfigured() || ! $this->isPaused()) {
+                    return null;
+                }
+
+                try {
+                    $stripeSubscription = Cashier::stripe()->subscriptions->resume($subscription->stripe_id, ['billing_cycle_anchor' => 'now']);
+                } catch (ApiErrorException $exception) {
+                    return $this->stripeFailed($exception);
+                }
+
+                // The webhook does the same a moment later; this saves the wait.
+                $subscription->forceFill(['stripe_status' => $stripeSubscription->status])->save();
+                $this->workspace()->syncPlanFromSubscription();
+
+                Notification::make()->success()->title("You're on the ".Features::planLabel().' plan')->send();
+
+                return null;
+            });
+    }
+
+    /**
      * The button on each plan card for a workspace without a subscription:
      * off to Stripe Checkout. Called with the plan's key.
      */
@@ -187,15 +263,19 @@ class Billing extends Page
             ->label(fn (array $arguments): string => 'Choose '.Features::planDefinition($arguments['plan'])?->label)
             ->authorize(fn (): bool => static::canAccess())
             ->action(function (array $arguments) {
-                $price = StripePrices::for($arguments['plan']);
+                $price = StripePrices::for($arguments['plan'], $arguments['interval'] ?? 'monthly');
 
                 // Never a second subscription beside one that is running or waiting for a payment.
                 if (! $this->isConfigured() || $price === null || $this->hasSubscription()) {
                     return null;
                 }
 
+                $trialDays = $this->workspace()->trialDaysOnOffer();
+
                 return $this->toStripe(fn (): string => $this->workspace()
                     ->newSubscription('default', $price)
+                    ->quantity($this->workspace()->quantityFor($price))
+                    ->when($trialDays > 0, fn ($subscription) => $subscription->trialDays($trialDays))
                     ->allowPromotionCodes()
                     ->checkout([
                         'success_url' => static::getUrl(['checkout' => 'success']),
@@ -212,19 +292,22 @@ class Billing extends Page
     public function changePlanAction(): Action
     {
         return Action::make('changePlan')
-            ->label(fn (array $arguments): string => 'Switch to '.Features::planDefinition($arguments['plan'])?->label)
+            ->label(fn (array $arguments): string => $arguments['plan'] === Features::plan()
+                ? 'Switch to '.strtolower(StripePrices::INTERVALS[$arguments['interval'] ?? 'monthly'] ?? '').' billing'
+                : 'Switch to '.Features::planDefinition($arguments['plan'])?->label)
             ->authorize(fn (): bool => static::canAccess())
             ->requiresConfirmation()
             ->modalDescription('Your subscription moves to this plan now, and Stripe prorates the difference.')
             ->action(function (array $arguments) {
-                $price = StripePrices::for($arguments['plan']);
+                $price = StripePrices::for($arguments['plan'], $arguments['interval'] ?? 'monthly');
 
                 if (! $this->isConfigured() || $price === null || ! $this->canSwitchPlans()) {
                     return null;
                 }
 
                 try {
-                    $this->workspace()->currentSubscription()->swap($price);
+                    // A per-seat plan is billed for the members, a flat one once.
+                    $this->workspace()->currentSubscription()->swap([$price => ['quantity' => $this->workspace()->quantityFor($price)]]);
                 } catch (IncompletePayment $exception) {
                     // The card needs a confirmation (3D Secure) or was declined: Cashier's payment
                     // page takes it from here, and the webhook sets the plan once the payment is through.
@@ -252,11 +335,47 @@ class Billing extends Page
     }
 
     /**
+     * The members a per-seat plan bills for.
+     */
+    public function billableSeats(): int
+    {
+        return $this->workspace()->billableSeats();
+    }
+
+    /**
+     * The free trial a checkout would start with, in days (0 for none).
+     */
+    public function trialDaysOnOffer(): int
+    {
+        return $this->hasSubscription() ? 0 : $this->workspace()->trialDaysOnOffer();
+    }
+
+    /**
+     * When the trial of the running subscription ends, while it is on one.
+     */
+    public function trialEndsAt(): ?CarbonInterface
+    {
+        $subscription = $this->workspace()->currentSubscription();
+
+        return $subscription?->onTrial() ? $subscription->trial_ends_at : null;
+    }
+
+    /**
      * Switching plans needs a subscription in good standing.
      */
     public function canSwitchPlans(): bool
     {
-        return (bool) $this->workspace()->currentSubscription()?->valid();
+        // Cashier counts a paused subscription as valid; it is not in good standing.
+        return (bool) $this->workspace()->currentSubscription()?->valid() && ! $this->isPaused();
+    }
+
+    /**
+     * Stripe paused the subscription: its trial ended without a payment
+     * method. The workspace is back on the default plan until it resumes.
+     */
+    public function isPaused(): bool
+    {
+        return $this->workspace()->currentSubscription()?->stripe_status === 'paused';
     }
 
     /**

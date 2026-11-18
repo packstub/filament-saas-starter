@@ -15,25 +15,6 @@ use function Pest\Laravel\get;
 use function Pest\Laravel\postJson;
 use function Pest\Livewire\livewire;
 
-/**
- * Stripe's answer to a subscription being read or changed.
- */
-function stripeSubscription(string $price, string $status = 'active', array $extra = []): array
-{
-    return [
-        'id' => 'sub_test',
-        'object' => 'subscription',
-        'status' => $status,
-        'items' => ['object' => 'list', 'data' => [[
-            'id' => 'si_test',
-            'object' => 'subscription_item',
-            'quantity' => 1,
-            'price' => ['id' => $price, 'object' => 'price', 'product' => 'prod_test'],
-        ]]],
-        ...$extra,
-    ];
-}
-
 beforeEach(function () {
     $this->workspace = workspace('free');
     $this->workspace->forceFill(['stripe_id' => 'cus_test'])->save();
@@ -81,13 +62,17 @@ it('refuses every action to someone who lost their role while the page was open'
     'changePlan' => ['changePlan', ['plan' => 'business']],
     'manage' => ['manage', []],
     'completePayment' => ['completePayment', []],
+    'resume' => ['resume', []],
 ]);
 
-it('explains how to add Stripe keys when there are none', function () {
+it('explains how to add Stripe keys when there are none, and shows the prices all the same', function () {
+    config()->set('billing.plans.pro.monthly.price', null);
+
     actingAs(Teams::ownersOf($this->workspace)->first())
         ->get("/app/{$this->workspace->slug}/billing")
         ->assertOk()
         ->assertSee('Add your Stripe keys')
+        ->assertSee('$29/mo')
         ->assertSee('STRIPE_SECRET')
         ->assertSee('Current plan')
         ->assertDontSee('Choose Pro');
@@ -105,6 +90,149 @@ it('offers the paid plans once Stripe is set up', function () {
         ->assertSee('Choose Pro')
         ->assertSee('Choose Business')
         ->assertDontSee('Choose Free');
+});
+
+it('shows the monthly and yearly prices, and hides the switch when no plan is sold yearly', function () {
+    config()->set('cashier.secret', 'sk_test_123');
+
+    inWorkspace($this->workspace);
+
+    livewire(Billing::class)
+        ->assertSeeInOrder(['Monthly', 'Yearly'])
+        ->assertSee(['$29/mo', '$99/mo', '$0'])
+        ->assertDontSee('$290/yr')
+        ->set('interval', 'yearly')
+        ->assertSee(['$290/yr', '$990/yr', '$0'])
+        ->assertDontSee('$29/mo')
+        // Asked for an interval nothing is sold at, the page stays on monthly.
+        ->set('interval', 'weekly')
+        ->assertSee('$29/mo');
+
+    config()->set('billing.plans.pro.yearly.price', null);
+    config()->set('billing.plans.business.yearly.price', null);
+
+    livewire(Billing::class)
+        ->assertDontSee('Yearly')
+        ->assertSee('$29/mo');
+});
+
+it('sends the customer to Stripe Checkout for the yearly price', function () {
+    $stripe = fakeStripe([
+        'GET /v1/customers/cus_test' => ['id' => 'cus_test', 'object' => 'customer'],
+        'POST /v1/checkout/sessions' => ['id' => 'cs_test', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/pay/cs_test'],
+    ]);
+
+    inWorkspace($this->workspace);
+
+    livewire(Billing::class)
+        ->set('interval', 'yearly')
+        ->assertSee('Choose Pro')
+        ->callAction(TestAction::make('subscribe')->arguments(['plan' => 'pro', 'interval' => 'yearly']))
+        ->assertRedirect('https://checkout.stripe.com/c/pay/cs_test');
+
+    expect($stripe->params['POST /v1/checkout/sessions']['line_items'][0]['price'])->toBe('price_pro_yearly');
+});
+
+it('puts a yearly subscriber on the plan, and opens Billing on the yearly prices', function () {
+    config()->set('cashier.secret', 'sk_test_123');
+
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro_yearly'))->assertOk();
+
+    expect($this->workspace->fresh()->plan)->toBe('pro');
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->assertSet('interval', 'yearly')
+        ->assertSee('$290/yr')
+        ->assertSee('Switch to Business')
+        ->assertDontSee('Switch to yearly billing');
+});
+
+it('moves a monthly subscription to yearly billing on the same plan', function () {
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro'))->assertOk();
+
+    $stripe = fakeStripe([
+        'POST /v1/subscriptions/sub_test' => stripeSubscription('price_pro_yearly'),
+        'GET /v1/subscriptions/sub_test' => stripeSubscription('price_pro_yearly'),
+    ]);
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->assertSet('interval', 'monthly')
+        ->set('interval', 'yearly')
+        ->assertSee('Switch to yearly billing')
+        ->callAction(TestAction::make('changePlan')->arguments(['plan' => 'pro', 'interval' => 'yearly']))
+        ->assertNotified("You're on the Pro plan");
+
+    expect($stripe->params['POST /v1/subscriptions/sub_test']['items'][0]['price'])->toBe('price_pro_yearly')
+        ->and($this->workspace->currentSubscription()->stripe_price)->toBe('price_pro_yearly')
+        ->and($this->workspace->fresh()->plan)->toBe('pro');
+});
+
+it('starts a first subscription with the free trial', function () {
+    $stripe = fakeStripe([
+        'GET /v1/customers/cus_test' => ['id' => 'cus_test', 'object' => 'customer'],
+        'POST /v1/checkout/sessions' => ['id' => 'cs_test', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/pay/cs_test'],
+    ]);
+
+    inWorkspace($this->workspace);
+
+    livewire(Billing::class)
+        ->assertSee('14-day free trial')
+        ->callAction(TestAction::make('subscribe')->arguments(['plan' => 'pro', 'interval' => 'monthly']))
+        ->assertRedirect('https://checkout.stripe.com/c/pay/cs_test');
+
+    $trialEnd = $stripe->params['POST /v1/checkout/sessions']['subscription_data']['trial_end'];
+
+    expect($trialEnd)->toBeGreaterThanOrEqual(now()->addDays(14)->getTimestamp() - 5)
+        ->and($trialEnd)->toBeLessThanOrEqual(now()->addDays(14)->getTimestamp() + 5);
+});
+
+it('offers no second trial to a workspace that has had a subscription, nor any when trials are off', function (bool $hadSubscription, int $days) {
+    config()->set('billing.trial_days', $days);
+
+    if ($hadSubscription) {
+        postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro'))->assertOk();
+        postJson('/stripe/webhook', stripeSubscriptionEvent('deleted', $this->workspace, 'price_pro', 'canceled'))->assertOk();
+    }
+
+    $stripe = fakeStripe([
+        'GET /v1/customers/cus_test' => ['id' => 'cus_test', 'object' => 'customer'],
+        'POST /v1/checkout/sessions' => ['id' => 'cs_test', 'object' => 'checkout.session', 'url' => 'https://checkout.stripe.com/c/pay/cs_test'],
+    ]);
+
+    inWorkspace($this->workspace->fresh());
+
+    expect($this->workspace->fresh()->trialDaysOnOffer())->toBe(0);
+
+    livewire(Billing::class)
+        ->assertDontSee('free trial')
+        ->callAction(TestAction::make('subscribe')->arguments(['plan' => 'pro', 'interval' => 'monthly']))
+        ->assertRedirect('https://checkout.stripe.com/c/pay/cs_test');
+
+    expect($stripe->params['POST /v1/checkout/sessions']['subscription_data'])->not->toHaveKey('trial_end');
+})->with([
+    'had a subscription' => [true, 14],
+    'trials off' => [false, 0],
+]);
+
+it('says when the free trial ends, on the Billing page and the dashboard', function () {
+    config()->set('cashier.secret', 'sk_test_123');
+    $trialEnd = now()->addDays(10);
+
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro', 'trialing', ['trial_end' => $trialEnd->getTimestamp()]))->assertOk();
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->assertSee('Your free trial ends on '.$trialEnd->toFormattedDateString())
+        ->assertSee('Switch to Business')
+        ->assertDontSee('day free trial');
+
+    livewire(WorkspaceOverview::class)
+        ->assertSee('Trial ends '.$trialEnd->format('M j'));
 });
 
 it('sends the customer to Stripe Checkout for the price of the plan', function () {
@@ -252,6 +380,51 @@ it('offers the portal, and neither a checkout nor a switch, while a payment is p
         ->and($this->workspace->fresh()->plan)->toBe('pro');
 });
 
+it('offers the portal and Resume, and no switch, for a subscription Stripe paused after its trial', function () {
+    $stripe = fakeStripe();
+
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro', 'trialing', ['trial_end' => now()->addDay()->getTimestamp()]))->assertOk();
+    postJson('/stripe/webhook', stripeSubscriptionEvent('updated', $this->workspace, 'price_pro', 'paused', ['trial_end' => now()->subDay()->getTimestamp()]))->assertOk();
+
+    expect($this->workspace->fresh()->plan)->toBe('free');
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->assertSee('Your trial ended without a payment method')
+        ->assertSee('Resume subscription')
+        ->assertDontSee('Choose ')
+        ->assertDontSee('Switch to ')
+        ->callAction(TestAction::make('changePlan')->arguments(['plan' => 'business', 'interval' => 'monthly']))
+        ->assertNoRedirect();
+
+    expect($stripe->requests)->toBe([]);
+});
+
+it('resumes a paused subscription once Stripe has a card, and says so when it has none', function () {
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro', 'paused'))->assertOk();
+
+    fakeStripe(['POST /v1/subscriptions/sub_test/resume' => ['error' => ['message' => 'This customer has no attached payment source.']]]);
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->callAction('resume')
+        ->assertNotified('Stripe could not complete that');
+
+    expect($this->workspace->fresh()->plan)->toBe('free');
+
+    $stripe = fakeStripe(['POST /v1/subscriptions/sub_test/resume' => stripeSubscription('price_pro')]);
+
+    livewire(Billing::class)
+        ->callAction('resume')
+        ->assertNotified("You're on the Pro plan");
+
+    expect($stripe->params['POST /v1/subscriptions/sub_test/resume']['billing_cycle_anchor'])->toBe('now')
+        ->and($this->workspace->fresh()->plan)->toBe('pro')
+        ->and($this->workspace->currentSubscription()->stripe_status)->toBe('active');
+});
+
 it('sends an unfinished first payment to the payment page, and offers no second checkout', function () {
     postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro', 'incomplete'))->assertOk();
 
@@ -304,13 +477,38 @@ it('maps Stripe prices to plans and back', function (?string $price, ?string $pl
 })->with([
     'the Pro price' => ['price_pro', 'pro'],
     'the Business price' => ['price_business', 'business'],
+    'the yearly Pro price' => ['price_pro_yearly', 'pro'],
+    'the yearly Business price' => ['price_business_yearly', 'business'],
     'a price no plan has' => ['price_yearly', null],
     'an empty price' => ['', null],
     'no price' => [null, null],
 ]);
 
+it('knows the interval each price bills at', function (?string $price, ?string $interval) {
+    expect(StripePrices::interval($price))->toBe($interval);
+})->with([
+    'monthly' => ['price_pro', 'monthly'],
+    'yearly' => ['price_business_yearly', 'yearly'],
+    'a price no plan has' => ['price_weekly', null],
+    'no price' => [null, null],
+]);
+
+it('sells a plan monthly only when it has no yearly price', function () {
+    config()->set('billing.plans.pro.yearly.price', null);
+
+    expect(StripePrices::for('pro', 'yearly'))->toBeNull()
+        // The amount is text for people, shown whether or not Stripe has the price yet.
+        ->and(StripePrices::amount('pro', 'yearly'))->toBe('$290/yr')
+        ->and(StripePrices::for('business', 'yearly'))->toBe('price_business_yearly')
+        ->and(StripePrices::intervals())->toBe(['monthly', 'yearly']);
+
+    config()->set('billing.plans.business.yearly.price', '');
+
+    expect(StripePrices::intervals())->toBe(['monthly']);
+});
+
 it('sells only the plans that have a price', function () {
-    config()->set('billing.prices.business', '');
+    config()->set('billing.plans.business.monthly.price', '');
 
     expect(StripePrices::for('pro'))->toBe('price_pro')
         ->and(StripePrices::for('business'))->toBeNull()
@@ -334,4 +532,48 @@ it('shows on the dashboard what the workspace has used of its plan', function ()
     livewire(WorkspaceOverview::class)
         ->assertSee('Business')
         ->assertDontSee(' of ');
+});
+
+it('still reads the price keys of a copy made before yearly prices', function () {
+    $config = fn (array $env): array => (function () use ($env) {
+        foreach ($env as $key => $value) {
+            putenv("{$key}={$value}");
+            $_ENV[$key] = $_SERVER[$key] = $value;
+        }
+
+        try {
+            return require config_path('billing.php');
+        } finally {
+            foreach (array_keys($env) as $key) {
+                putenv($key);
+                unset($_ENV[$key], $_SERVER[$key]);
+            }
+        }
+    })();
+
+    // phpunit.xml sets the new keys; without them, the old ones count.
+    $before = ['STRIPE_PRICE_PRO_MONTHLY' => $_ENV['STRIPE_PRICE_PRO_MONTHLY'] ?? null, 'STRIPE_PRICE_BUSINESS_MONTHLY' => $_ENV['STRIPE_PRICE_BUSINESS_MONTHLY'] ?? null];
+    foreach (array_keys($before) as $key) {
+        putenv($key);
+        unset($_ENV[$key], $_SERVER[$key]);
+    }
+
+    try {
+        $billing = $config(['STRIPE_PRICE_PRO' => 'price_old_pro', 'STRIPE_PRICE_BUSINESS' => 'price_old_business']);
+
+        expect($billing['plans']['pro']['monthly']['price'])->toBe('price_old_pro')
+            ->and($billing['plans']['business']['monthly']['price'])->toBe('price_old_business');
+
+        // The new name wins when both are set.
+        $billing = $config(['STRIPE_PRICE_PRO' => 'price_old_pro', 'STRIPE_PRICE_PRO_MONTHLY' => 'price_new_pro']);
+
+        expect($billing['plans']['pro']['monthly']['price'])->toBe('price_new_pro');
+    } finally {
+        foreach ($before as $key => $value) {
+            if ($value !== null) {
+                putenv("{$key}={$value}");
+                $_ENV[$key] = $_SERVER[$key] = $value;
+            }
+        }
+    }
 });

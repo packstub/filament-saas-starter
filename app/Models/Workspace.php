@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Billing\StripePrices;
+use App\Enums\AuditEventType;
 use Database\Factories\WorkspaceFactory;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -65,12 +66,24 @@ class Workspace extends Model
             });
 
             FeatureOverride::query()->forScope($workspace)->delete();
+
+            // Its audit log goes too; the entry written below stays for the back office.
+            AuditEvent::query()->where('workspace_id', $workspace->getKey())->delete();
         });
+
+        // Inside the same transaction as the delete (see delete() below).
+        static::deleted(fn (Workspace $workspace) => AuditEvent::record($workspace, AuditEventType::WorkspaceDeleted));
     }
 
     /**
      * All or nothing: the workspace's row and everything the `deleting` hook
      * removes go in one transaction, wherever delete() is called from.
+     *
+     * The Stripe cancellation happens inside it, so the rows stay locked for
+     * that call, and a later failure rolls back the rows but not the
+     * cancellation. That case puts itself right: Stripe then sends
+     * `customer.subscription.deleted`, and the webhook moves the workspace
+     * that is still here to the default plan.
      */
     public function delete(): ?bool
     {
@@ -159,9 +172,19 @@ class Workspace extends Model
      */
     public function changePlan(string $plan): void
     {
+        // A workspace just created has no plan attribute yet: the column's default applies.
+        $from = $this->getAttributes()['plan'] ?? config('packstub-features.default_plan');
+
         $this->forceFill(['plan' => $plan])->save();
 
         Features::flush($this);
+
+        if ($from !== $plan) {
+            AuditEvent::record($this, AuditEventType::PlanChanged, [
+                'from' => Features::planDefinition($from)?->label ?? $from,
+                'to' => Features::planDefinition($plan)?->label ?? $plan,
+            ]);
+        }
     }
 
     /**
@@ -179,19 +202,32 @@ class Workspace extends Model
     }
 
     /**
+     * The free trial a new subscription would start with, in days: the
+     * configured trial for a workspace that has never had a subscription,
+     * none for one that has (one trial per workspace).
+     */
+    public function trialDaysOnOffer(): int
+    {
+        $days = (int) config('billing.trial_days');
+
+        return $days > 0 && ! $this->subscriptions()->exists() ? $days : 0;
+    }
+
+    /**
      * Match the plan to the Stripe subscription.
      *
      * The plan of its price while the subscription is active, on trial, in
      * its grace period after a cancellation, or past due: Stripe retries a
      * failed payment for days, and the customer keeps what they had while it
-     * does. The default plan once it has ended, was never paid, or Stripe
-     * gave up collecting (`unpaid`).
+     * does. The default plan once it has ended, was never paid, Stripe gave
+     * up collecting (`unpaid`), or Stripe paused it because a trial ended
+     * without a card (`paused`, which Cashier counts as active).
      */
     public function syncPlanFromSubscription(): void
     {
         $subscription = $this->currentSubscription();
 
-        if (! $subscription || ! ($subscription->valid() || $subscription->pastDue())) {
+        if (! $subscription || $subscription->stripe_status === 'paused' || ! ($subscription->valid() || $subscription->pastDue())) {
             $this->changePlan(config('packstub-features.default_plan'));
 
             return;
@@ -201,7 +237,8 @@ class Workspace extends Model
 
         if ($plan === null) {
             // A price created in Stripe and not added to config/billing.php (a
-            // yearly price, say). The customer pays, so the plan stays as it is.
+            // new price tried out in the dashboard, say). The customer pays, so
+            // the plan stays as it is.
             Log::warning('A Stripe subscription has a price that config/billing.php does not map to a plan; the workspace keeps its current plan.', [
                 'workspace' => $this->getKey(),
                 'subscription' => $subscription->stripe_id,
@@ -212,6 +249,47 @@ class Workspace extends Model
         }
 
         $this->changePlan($plan);
+    }
+
+    /**
+     * How many seats a per-seat plan bills this workspace for: its members.
+     * Pending invitations hold a seat against the plan's limit but are not
+     * billed until someone accepts.
+     */
+    public function billableSeats(): int
+    {
+        return max(1, Teams::membersOf($this)->count());
+    }
+
+    /**
+     * The quantity a subscription on this price should have: the billable
+     * seats on a per-seat plan, one on a flat one.
+     */
+    public function quantityFor(string $price): int
+    {
+        return StripePrices::perSeat(StripePrices::plan($price)) ? $this->billableSeats() : 1;
+    }
+
+    /**
+     * Bring the quantity of a per-seat subscription in Stripe in line with
+     * the members, after someone joined or left. Nothing to do on a flat
+     * plan, without a Stripe secret, or for a subscription that is not in
+     * good standing (Stripe refuses to change an incomplete one).
+     */
+    public function syncSeatQuantity(): void
+    {
+        $subscription = $this->currentSubscription();
+
+        if (blank(config('cashier.secret')) || ! $subscription?->valid() || $subscription->incomplete()
+            || ! StripePrices::perSeat(StripePrices::plan($subscription->stripe_price))) {
+            return;
+        }
+
+        $seats = $this->billableSeats();
+
+        if ($subscription->quantity !== $seats) {
+            $subscription->updateQuantity($seats);
+        }
     }
 
     /**

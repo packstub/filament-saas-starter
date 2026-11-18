@@ -13,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Stripe's webhooks carry a signature instead of a CSRF token.
         $middleware->preventRequestForgery(except: ['stripe/*']);
+
+        // Routes of the app's own behind `auth` (the data exports) send guests to the panel's sign-in page.
+        $middleware->redirectGuestsTo('/app/login');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

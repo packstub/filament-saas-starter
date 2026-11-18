@@ -82,7 +82,7 @@ function inAdminPanel(?User $user = null): User
 /**
  * A Stripe subscription webhook as Cashier receives it.
  */
-function stripeSubscriptionEvent(string $type, Workspace $workspace, string $price, string $status = 'active'): array
+function stripeSubscriptionEvent(string $type, Workspace $workspace, string $price, string $status = 'active', array $extra = []): array
 {
     return [
         'id' => 'evt_'.fake()->uuid(),
@@ -97,12 +97,32 @@ function stripeSubscriptionEvent(string $type, Workspace $workspace, string $pri
                 'items' => [
                     'data' => [[
                         'id' => 'si_test',
-                        'quantity' => 1,
+                        'quantity' => $extra['quantity'] ?? 1,
                         'price' => ['id' => $price, 'product' => 'prod_test'],
                     ]],
                 ],
+                ...$extra,
             ],
         ],
+    ];
+}
+
+/**
+ * Stripe's answer to a subscription being read or changed.
+ */
+function stripeSubscription(string $price, string $status = 'active', array $extra = []): array
+{
+    return [
+        'id' => 'sub_test',
+        'object' => 'subscription',
+        'status' => $status,
+        'items' => ['object' => 'list', 'data' => [[
+            'id' => 'si_test',
+            'object' => 'subscription_item',
+            'quantity' => $extra['quantity'] ?? 1,
+            'price' => ['id' => $price, 'object' => 'price', 'product' => 'prod_test'],
+        ]]],
+        ...$extra,
     ];
 }
 
@@ -125,7 +145,8 @@ function postSignedStripeEvent(array $event, string $secret): TestResponse
  * Stripe's API, answered by the test instead of Stripe. Give the answer to
  * every call the app is expected to make, keyed like `POST /v1/checkout/sessions`;
  * an answer with an `error` key is sent as a failed request. A call without
- * an answer fails the test. The calls made are in `->requests`.
+ * an answer fails the test. The calls made are in `->requests`, the
+ * parameters of the last call of each kind in `->params`.
  *
  * @param  array<string, array<string, mixed>>  $responses
  */
@@ -138,11 +159,15 @@ function fakeStripe(array $responses = []): object
         /** @var list<string> */
         public array $requests = [];
 
+        /** @var array<string, array<string, mixed>> */
+        public array $params = [];
+
         public function __construct(private array $responses) {}
 
         public function request($method, $absUrl, $headers, $params, $hasFile, $apiMode = 'v1', $maxNetworkRetries = null)
         {
             $this->requests[] = $request = strtoupper($method).' '.parse_url($absUrl, PHP_URL_PATH);
+            $this->params[$request] = $params;
 
             $response = $this->responses[$request] ?? throw new LogicException("The test gave no answer for the Stripe call [{$request}].");
 

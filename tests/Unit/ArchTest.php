@@ -1,5 +1,6 @@
 <?php
 
+use Filament\Support\Contracts\HasLabel;
 use Illuminate\Database\Eloquent\Model;
 
 // Pest's presets: no debugging leftovers, no weak hashing or `eval`, and Laravel's
@@ -13,9 +14,10 @@ arch('models extend Eloquent')
     ->expect('App\Models')
     ->toExtend(Model::class);
 
-arch('enums are enums')
+arch('enums are enums that carry their own labels')
     ->expect('App\Enums')
-    ->toBeEnums();
+    ->toBeEnums()
+    ->toImplement(HasLabel::class);
 
 arch('policies are plain classes named after their model')
     ->expect('App\Policies')

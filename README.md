@@ -6,12 +6,13 @@ Free and open source, under the MIT license.
 
 ## What you get in the first hour
 
-- **[Sign-up and log-in](#accounts-and-security)**: Filament's own auth pages, with e-mail verification, password reset, a profile page and two-factor authentication.
+- **[Sign-up and log-in](#accounts-and-security)**: Filament's own auth pages, with e-mail verification, password reset, a profile page, two-factor authentication, a download of your data and account deletion.
 - **[Workspaces](#workspaces)**: every sign-up gets one, a person can belong to several, and everything in the panel is scoped to the current one.
 - **[Team members](#members-and-invitations)**: invitations by e-mail or link, the roles Owner, Admin and Member, and seats counted against the plan.
 - **[Plans and limits](#plans-and-limits)**: Free, Pro and Business in one config file, a **Your plan** page with usage, and overrides for a single workspace.
-- **[Billing](#billing-with-stripe)**: Stripe Checkout and the customer portal through Laravel Cashier, with a webhook that puts the workspace on the plan it pays for.
-- **[Support logins](#support-logins)**: an admin panel where you sign in as a customer to see what they see, with a log of every switch.
+- **[Billing](#billing-with-stripe)**: Stripe Checkout and the customer portal through Laravel Cashier, monthly and yearly prices, a free trial and optional per-seat pricing, with a webhook that puts the workspace on the plan it pays for.
+- **[Audit log](#audit-log)**: who joined, left, changed role, was invited or took over a workspace, and every plan change, on an Activity page for owners and admins.
+- **[Support logins](#support-logins)**: an admin panel where you sign in as a customer to see what they see, with a log of every switch and every workspace's activity.
 - **[One complete example](#the-projects-pattern)**: Projects, scoped to the workspace, guarded by a policy and counted against a plan limit.
 - **[Tests](#tests)**: a Pest suite over all of the above, and GitHub Actions to run it.
 
@@ -90,6 +91,7 @@ A workspace is the tenant: the `App\Models\Workspace` model, with its slug in th
 - `Workspace::named()` creates a workspace from a name: at most 60 characters, with a unique slug of at most 50, the suffix of a repeated name included.
 - A name that matches a page of the panel gets a suffix too: "New" becomes `new-x7k2`, because `/app/new` is the **New workspace** page. `Workspace::reservedSlugs()` reads those words from the panel's routes, so a page or plugin you add later is covered.
 - **Workspace settings** is `EditWorkspace.php` next to it, open to owners and admins through `app/Policies/WorkspacePolicy.php`.
+- **Delete workspace**, at the bottom of Workspace settings, is for owners only (`WorkspacePolicy::delete()`), never during a support login, and asks for the workspace's name. It runs `$workspace->delete()`: the Stripe subscription is cancelled first, then the projects, members, invitations, subscription rows and overrides go in one transaction. If Stripe refuses, nothing is deleted and the owner is told. Afterwards the panel opens another of their workspaces, or the **New workspace** page.
 - `User::getDefaultTenant()` picks the workspace a person lands in after signing in.
 
 ### Accounts and security
@@ -97,6 +99,8 @@ A workspace is the tenant: the `App\Models\Workspace` model, with its slug in th
 - **Passwords** follow `Password::defaults()` in `app/Providers/AppServiceProvider.php`, on the sign-up, password reset and profile pages: at least 12 characters and not found in known data leaks in production, at least 8 elsewhere so the demo accounts can keep `password`.
 - **Two-factor authentication** is Filament's own, with an authenticator app and recovery codes. Customers switch it on from their **Profile** page. The admin panel requires it: an admin without it is sent to set it up before any page opens. In the local environment `/admin` skips that step, so the demo admin gets in with one click.
 - The secret and the recovery codes are stored encrypted in two columns of the `users` table.
+- **Download your data**, on the **Profile** page, gives a person one JSON file with everything the app holds about them: their account, the workspaces they are in and their role, their notifications, and every support login into their account. **Export workspace data**, in Workspace settings, does the same for a workspace, for owners only (`WorkspacePolicy::export()`): members, invitations, subscriptions, overrides and projects. Both come from `app/Support/DataExport.php` and are plain GET downloads (`/exports/me`, `/exports/workspaces/{slug}`, in `app/Http/Controllers`) streamed to the browser as they are read, so a workspace with many projects never sits in memory whole. The buttons link there rather than returning the file from a Filament action, which Livewire would buffer whole. A table you add for a workspace belongs in `DataExport::forWorkspace()` too.
+- **Delete account** is at the bottom of the **Profile** page (`app/Filament/App/Pages/Auth/EditProfile.php`), behind the person's password. `User::deleteAccount()` deletes every workspace where they are the only member (cancelling its subscription first) and takes them out of the others. Someone who is the only owner of a workspace others still use is asked to hand it over under **Members** (**Transfer ownership**) or delete it first, so no workspace is left without an owner. The button is hidden during a support login. Filament Account Switcher's own log loses the support logins into a deleted account (its `account_switches` rows go with the user); the workspaces' audit logs keep what support did, under "Deleted user".
 - **Strict models**: outside production, `Model::shouldBeStrict()` turns a lazy-loaded relation (an N+1 query), a missing attribute and a field left out of `Fillable` into an error, so you find them while developing.
 
 ### Members and invitations
@@ -106,6 +110,7 @@ The **Members** and **Invitations** pages come from Filament Teams. An owner or 
 Someone with an account signs in there and joins. They also find the invitation under the bell icon. Someone new follows **sign up for an account**, finds the invited address filled in, and joins the workspace instead of getting one of their own.
 
 - Roles and what each may do are in `config/packstub-teams.php`: **Owner** can do everything, **Admin** manages members, settings and billing, **Member** works with the workspace's data.
+- **Transfer ownership**, on a member's row, is for owners: the member becomes the owner and the former owner stays on as an admin. Only an owner can delete the workspace or export its data, and Stripe's receipts go to the owner's address, so `app/Listeners/UpdateStripeBillingContact.php` queues `app/Jobs/SyncStripeCustomer.php` to update the Stripe customer after a transfer (by the workspace's id, like the seat sync).
 - Check a role anywhere with `$user->hasTeamPermission($workspace, 'delete')` or `$user->canManageTeam($workspace)`.
 - Seats are members plus pending invitations, and their limit comes from the plan.
 - Invitation e-mails go to the log locally (`MAIL_MAILER=log`): the link is in `storage/logs/laravel.log`. They are queued (`invitations.mail.queue` in `config/packstub-teams.php`), which with `QUEUE_CONNECTION=sync` still means sent right away.
@@ -145,15 +150,19 @@ The **Billing** page (`app/Filament/App/Pages/Billing.php`) shows the plans to a
 
 The app runs without a Stripe account: the Billing page then lists the `.env` keys that are still missing, and every workspace keeps its plan. To turn billing on:
 
-1. In the Stripe dashboard, in test mode, create a product with a recurring price for Pro and one for Business.
+1. In the Stripe dashboard, in test mode, create a product for Pro and one for Business, each with a monthly recurring price and, if you sell it yearly, a yearly one.
 2. Fill in `.env`:
 
    ```ini
    STRIPE_KEY=pk_test_...
    STRIPE_SECRET=sk_test_...
-   STRIPE_PRICE_PRO=price_...
-   STRIPE_PRICE_BUSINESS=price_...
+   STRIPE_PRICE_PRO_MONTHLY=price_...
+   STRIPE_PRICE_PRO_YEARLY=price_...
+   STRIPE_PRICE_BUSINESS_MONTHLY=price_...
+   STRIPE_PRICE_BUSINESS_YEARLY=price_...
    ```
+
+   Leave a yearly price empty to sell that plan monthly only. In a copy made before yearly prices the keys were `STRIPE_PRICE_PRO` and `STRIPE_PRICE_BUSINESS`; they are still read as the monthly prices, but rename them.
 
 3. Forward Stripe's webhooks to your machine with the [Stripe CLI](https://docs.stripe.com/stripe-cli), and copy the signing secret it prints into `STRIPE_WEBHOOK_SECRET`:
 
@@ -168,17 +177,43 @@ In production, `php artisan cashier:webhook` creates the webhook endpoint in Str
 How a payment becomes a plan:
 
 - A plan's button opens Stripe Checkout for the price in `config/billing.php`. A workspace that already pays gets **Switch to** instead, which moves its subscription to the other price.
+- A workspace's first subscription starts with a free trial: 14 days, set by `BILLING_TRIAL_DAYS` (`trial_days` in `config/billing.php`, 0 turns it off). Checkout still takes the card, so the plan carries on when the trial ends; the Billing page and the dashboard say when that is. A workspace that has had a subscription before pays from the first day. The trial is per workspace, so a new workspace gets one too; `config/billing.php` says how to make it one per person if that matters to you. If the trial ends without a payment, the webhook puts the workspace back on the Free plan. Should Stripe pause the subscription instead (a trial whose card was removed), the Billing page asks for a card under **Manage billing** and offers **Resume subscription**, which bills from that day.
+- **Monthly** and **Yearly** above the plans switch the prices the cards show, once any plan has a yearly price. Both prices of a plan map back to it, so a yearly subscriber gets the same limits as a monthly one, and a monthly subscriber can move to yearly billing on the same plan.
 - Stripe calls `/stripe/webhook`. Cashier stores the subscription, then `app/Listeners/SyncWorkspacePlanFromStripe.php` puts the workspace on the plan of that price.
 - When the subscription ends, the same listener puts the workspace back on the Free plan. Its members and projects stay, but inviting and creating stop at the Free limits. The same happens when you delete the customer in Stripe.
 - While Stripe retries a failed payment (`past_due`), the workspace keeps its plan. The Billing page then shows "Your last payment did not go through" with **Manage billing**. It does not offer a new checkout while that subscription is still running.
 - A switch that needs the card confirmed (3D Secure) continues on Cashier's payment page. So does a first payment left unfinished at Checkout: the Billing page shows "Your payment is not finished yet" with **Complete payment**.
 - **Manage billing** opens Stripe's customer portal.
-- Deleting a `Workspace` cancels its Stripe subscription first (the `deleting` hook on the model), so nothing keeps billing, then removes its projects, subscription rows and feature overrides. The kit has no button that deletes a workspace; add one where it suits your product.
-- A subscription on a price that `config/billing.php` does not list (a yearly price added in Stripe, say) leaves the plan as it is and writes a warning to the log.
+- Deleting a `Workspace` cancels its Stripe subscription first (the `deleting` hook on the model), so nothing keeps billing, then removes its projects, subscription rows and feature overrides. Owners do it from [Workspace settings](#workspaces).
+- A subscription on a price that `config/billing.php` does not list (a price added in the Stripe dashboard, say) leaves the plan as it is and writes a warning to the log.
+
+#### Per-seat pricing
+
+Plans are flat by default: one price, whatever the number of members. To bill a plan per member instead, set `'per_seat' => true` on it in `config/billing.php`, give it per-unit prices in Stripe ("$9 per seat"), and say so in its `amount`. Then:
+
+- Checkout starts the subscription with one seat per member. Pending invitations hold a seat against the plan's limit but are billed only once accepted.
+- When someone joins (an accepted invitation included) or leaves, `app/Listeners/SyncSeatQuantityWithStripe.php` queues `app/Jobs/SyncSeatQuantity.php`, which sets the subscription's quantity to the number of members, and Stripe prorates the difference. The job runs once the membership is saved, so run a queue worker in production; a call Stripe refuses is reported and tried again. It carries the workspace's id only: Filament Teams' events hold whole `User` models, and a queued listener would write their password hashes and remember tokens into the `jobs` table.
+- Every subscription webhook queues the same job, so a change made in the Stripe dashboard or a failed update is put right; a Stripe error there never fails the webhook.
+- Switching between a flat and a per-seat plan sets the quantity to match.
+- Give a per-seat plan unlimited `seats` in `config/packstub-features.php` (or a cap you want), since every seat is paid for.
 
 In production, set `STRIPE_WEBHOOK_SECRET` before taking payments. Cashier verifies a webhook's signature only when the secret is set. Until it is, the app refuses Stripe's webhooks with a 403 and an error in the log (`app/Listeners/RefuseUnsignedStripeWebhooks.php`), and the Billing page sells nothing.
 
-The prices people see (`$29/mo`) are text in `config/packstub-features.php`. Keep them in step with your Stripe prices. Read more in the [Laravel Cashier docs](https://laravel.com/docs/billing).
+The amounts people see (`$29/mo`, `$290/yr`) are text next to each price in `config/billing.php`. Keep them in step with your Stripe prices. Read more in the [Laravel Cashier docs](https://laravel.com/docs/billing).
+
+### Audit log
+
+Every workspace keeps a log of what happened in it: members who joined, left or changed role, invitations sent and accepted, ownership transfers, plan changes (from Stripe, from the admin panel or from the code) and the workspace's deletion. **Activity**, in the `app` panel, shows it to owners and admins, with a filter by kind. In `/admin`, **Activity** lists every workspace's entries, deleted workspaces included, with filters by kind, by workspace and for what happened during a support login; **Activity** on a row of **Workspaces** opens that workspace's entries.
+
+- `app/Models/AuditEvent.php` is an entry, and `AuditEvent::record($workspace, AuditEventType::…, [...])` writes one. Its kinds, with their labels, colours and icons, are `app/Enums/AuditEventType.php`.
+- `app/Listeners/RecordWorkspaceActivity.php` turns Filament Teams' membership events into entries; `Workspace::changePlan()` and the model's `deleted` hook write the plan changes and the deletion.
+- An entry names who did it, or "System" for a webhook or a command. During a [support login](#support-logins) it also names the admin behind it, so the customer's log shows "Ethan Park (support: Sam Carter)".
+- People and workspaces are kept by id and by name as they were, with no foreign keys, so an entry still reads well after a workspace is deleted. When someone deletes their account, `AuditEvent::forget()` replaces their name and e-mail address with "Deleted user" in every entry; what happened stays. Their entries are part of **Download your data**. Deleting a workspace removes its entries and writes one "Workspace deleted" entry, which stays for the back office.
+- The table is central, next to billing and the support-login log: the admin panel reads it across workspaces and it keeps the entry of a deleted workspace, so it stays on the main database if workspaces get databases of their own.
+- Entries older than 365 days (`AUDIT_RETENTION_DAYS`, `config/audit.php`) are removed by `model:prune`, scheduled daily in `routes/console.php`. Entries hold names and e-mail addresses, so keep them no longer than your privacy policy says.
+- A workspace's entries are part of its data export.
+
+To log something of your own, add a case to `AuditEventType` with its sentence in `AuditEvent::description()`, and call `AuditEvent::record()` where it happens.
 
 ### Support logins
 
@@ -186,7 +221,7 @@ In `/admin`, **Users** lists everyone with an account. **Impersonate** signs you
 
 - Only users with `is_admin` can open `/admin` (`User::canAccessPanel()`), and only with [two-factor authentication](#accounts-and-security) set up.
 - Only admins can sign in as someone else, and never as another admin (`User::canImpersonate()` and `User::canBeImpersonated()`).
-- Every switch is written to the `account_switches` table.
+- Every switch is written to the `account_switches` table, and what the admin does while signed in as someone is in the workspace's [audit log](#audit-log) under both names.
 - The plugin is set up once for both panels in `app/Support/SupportLogins.php`.
 
 Make your own account an admin from `php artisan tinker`:
@@ -212,7 +247,7 @@ For a new model:
 
 1. Put its migration in `database/migrations/workspace`, with a ULID key and an indexed `workspace_id`.
 2. Add `HasUlids` and the `workspace()` relationship to the model.
-3. Delete its rows in `Workspace`'s `deleting` hook.
+3. Delete its rows in `Workspace`'s `deleting` hook, and add them to `DataExport::forWorkspace()`.
 4. Write the policy.
 5. Create the resource in `app/Filament/App/Resources`.
 6. Add a limit if the plan should cap it.
@@ -229,15 +264,21 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 
 - `HomePageTest`: the home page links to sign-up and log-in.
 - `SignUpTest`: signing up creates a workspace with the person as owner, the panel opens after e-mail verification, long names, a second workspace, guests and other people's workspaces stay closed.
+- `DataExportTest`: what the personal and the workspace exports hold and leave out, the download routes and who may use them.
+- `AccountTest`: deleting an account with its password, what goes with it and what stays, the only owner of a shared workspace, support logins.
 - `AuthenticationTest`: the password rules, signing in with and without an authenticator app, two-factor authentication required for the admin panel.
-- `WorkspaceTest`: reserved slugs, workspace settings by role, what deleting a workspace removes.
+- `WorkspaceTest`: reserved slugs, workspace settings by role, deleting a workspace from its settings (owners only, the typed name, Stripe first) and what that removes.
+- `OwnershipTest`: transferring ownership from the Members page, owners only, what the new owner may do, the Stripe billing contact following.
 - `InvitationTest`: inviting from the Members page, signing up through an invitation, accepting with an existing account, an unverified account that claims an invited address, expired invitations, the seat limit.
 - `ProjectLimitTest`: projects stay in their workspace, creating stops at the plan's limit and resumes on a bigger plan, a smaller plan keeps what is there.
 - `ProjectAccessTest`: what each role may do with a project, other workspaces' projects stay out of reach by URL and by action, and the list runs the same number of queries however long it is.
-- `BillingTest`: subscription webhooks (created, updated, each Stripe status, deleted, customer deleted) change the plan and the limits; signed and unsigned webhooks; unknown prices.
-- `BillingPageTest`: the Billing page by role, with and without Stripe keys, Checkout, switching plans, the customer portal, a past-due subscription and a payment that needs confirming.
-- `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables.
-- `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping is scheduled.
+- `BillingTest`: subscription webhooks (created, updated, each Stripe status, a trial and its end, deleted, customer deleted) change the plan and the limits; signed and unsigned webhooks; unknown prices.
+- `QueuedJobsTest`: queued jobs, stored by a real database queue, never hold a person's password hash, remember token, two-factor secret or e-mail address; a job for a deleted workspace is dropped.
+- `SeatBillingTest`: per-seat plans: Checkout with a seat per member, the quantity following members who join, leave or accept an invitation, flat plans left alone, Stripe errors, a quantity put right by the next webhook.
+- `BillingPageTest`: the Billing page by role, with and without Stripe keys, monthly and yearly prices, the free trial, Checkout, switching plans and intervals, the customer portal, a past-due subscription, a subscription paused after its trial and resumed, and a payment that needs confirming.
+- `AuditLogTest`: what is recorded and by whom (a support login included), plan changes from Stripe and from the admin panel, a deleted workspace and deleted people, pruning, the Activity page by role and by workspace.
+- `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables, the Activity of every workspace.
+- `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping (invitations, overrides, the audit log) is scheduled.
 
 `tests/Unit/ArchTest.php` holds the architecture tests: Pest's `php`, `security` and `laravel` presets and a few rules of the kit's own.
 
@@ -264,7 +305,7 @@ The steps, in the order you meet them:
 4. **The `User` model.** It gets `HasPackstubTenants`, which brings its own `getTenants()`, `canAccessTenant()` and `getDefaultTenant()`. Swap `HasTeamMemberships` for `HasTeamRoles`, remove the kit's `getDefaultTenant()`, and add stancl/tenancy's `CentralConnection` trait, so accounts are always read from the central database. The app's own code asks the `Teams` facade (`Teams::ownersOf()`, `Teams::membersOf()`, `Teams::teamsOf()`) instead of the traits' relations, so it keeps working. Two places name the `joinedTeams()` relation: the tests, which can use `Teams::teamsOf()`, and the workspace count of the admin **Users** table (`withCount('joinedTeams')` in `UserResource`), which becomes `withCount('tenants')`.
 5. **Paths or subdomains.** The kit serves workspaces under `/app/{workspace}`. To keep that, set `'identification' => 'path'` and `'route_prefix' => null` in `config/packstub-tenancy.php` before you run `php artisan migrate`. Without the second line, URLs become `/app/teams/{workspace}`. The default is a subdomain per workspace, which needs wildcard DNS and `$workspace->ensureDefaultDomain()` after `Workspace::named()`.
 6. **The panel.** `->tenant()`, `->tenantRegistration()` and `->tenantProfile()` in `AppPanelProvider` make way for `TenancyPlugin::make()`, which registers its own onboarding and profile pages.
-7. **Moving a workspace.** With a shard connection added (`shard_2` here) and the migrations in `database/migrations/workspace` run on it, check with `php artisan tenants:move acme --to=shard_2 --dry-run --exclude=subscriptions`, then run it without `--dry-run`. Always pass `--exclude=subscriptions`: Cashier's `subscriptions` table carries `workspace_id` but belongs with billing, on the central database where the webhooks write.
+7. **Moving a workspace.** With a shard connection added (`shard_2` here) and the migrations in `database/migrations/workspace` run on it, check with `php artisan tenants:move acme --to=shard_2 --dry-run --exclude=subscriptions,audit_events`, then run it without `--dry-run`. Always pass `--exclude=subscriptions,audit_events`: Cashier's `subscriptions` table and the audit log carry `workspace_id` but stay central, where the webhooks write and the admin panel reads.
 8. **Tables that stay central.** Inside a moved workspace the default connection is the workspace's database, so everything central has to name its connection. The kit already does: `config/packstub-teams.php` and `config/packstub-features.php` set `connection` to `DB_CONNECTION`, which is the connection Filament Tenancy treats as central. Filament Account Switcher's tables, notifications and Cashier's subscriptions follow the `User` and `Workspace` models, which are central. Give a central model of your own the `CentralConnection` trait too.
 9. **Code outside a workspace's request.** The admin panel, jobs and commands run on the central database. To read what a workspace owns there, run inside it: `$workspace->run(fn () => Project::count())`. The usage counter in `app/Support/Plans.php` and the `deleting` hook on `Workspace` are the two places in the kit that read projects.
 

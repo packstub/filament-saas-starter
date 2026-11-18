@@ -44,16 +44,16 @@ return [
     | subscription, anything — falling back to `default_plan`.
     |
     | Here it is the `workspaces.plan` column, which the Stripe webhook keeps
-    | in step with the subscription. `price` is the text shown to people;
-    | the Stripe price ID of each paid plan lives in config/billing.php
-    | under the same key.
+    | in step with the subscription. A paid plan's Stripe prices and the
+    | amounts people see (monthly, yearly) live in config/billing.php under
+    | the same key; `price` here is the text for a plan that is not sold.
     |
     */
 
     'plans' => [
         'free' => ['label' => 'Free', 'description' => 'For trying things out.', 'price' => '$0', 'features' => ['projects' => 3, 'seats' => 2]],
-        'pro' => ['label' => 'Pro', 'description' => 'For a growing team.', 'price' => '$29/mo', 'features' => ['projects' => 50, 'seats' => 10]],
-        'business' => ['label' => 'Business', 'description' => 'No limits, and help when you need it.', 'price' => '$99/mo', 'features' => ['projects' => null, 'seats' => null, 'priority_support' => true]],
+        'pro' => ['label' => 'Pro', 'description' => 'For a growing team.', 'features' => ['projects' => 50, 'seats' => 10]],
+        'business' => ['label' => 'Business', 'description' => 'No limits, and help when you need it.', 'features' => ['projects' => null, 'seats' => null, 'priority_support' => true]],
     ],
 
     'default_plan' => env('PACKSTUB_FEATURES_DEFAULT_PLAN', 'free'),

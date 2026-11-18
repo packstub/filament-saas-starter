@@ -2,6 +2,7 @@
 
 namespace App\Filament\Admin\Resources\Workspaces;
 
+use App\Filament\Admin\Resources\AuditEvents\AuditEventResource;
 use App\Filament\Admin\Resources\Workspaces\Pages\ManageWorkspaces;
 use App\Models\Workspace;
 use BackedEnum;
@@ -59,6 +60,11 @@ class WorkspaceResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->recordActions([
+                Action::make('activity')
+                    ->label('Activity')
+                    ->icon(Heroicon::OutlinedClipboardDocumentList)
+                    ->color('gray')
+                    ->url(fn (Workspace $record): string => AuditEventResource::getUrl('index', ['filters' => ['workspace' => ['value' => $record->getKey()]]])),
                 Action::make('changePlan')
                     ->label('Change plan')
                     ->icon(Heroicon::OutlinedSparkles)
