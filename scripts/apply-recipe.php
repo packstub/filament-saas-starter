@@ -43,7 +43,14 @@ if (! is_file($recipe) || ! is_dir($root)) {
 
 $applied = 0;
 
-foreach (blocks(file_get_contents($recipe)) as $block) {
+try {
+    $blocks = blocks(file_get_contents($recipe));
+} catch (RuntimeException $exception) {
+    fwrite(STDERR, basename($recipe).": {$exception->getMessage()}\n");
+    exit(1);
+}
+
+foreach ($blocks as $block) {
     $directives = $block['directives'];
 
     if ($directives === []) {
@@ -85,6 +92,11 @@ function blocks(string $markdown): array
 
     for ($i = 0; $i < count($lines); $i++) {
         if (! preg_match('/^(`{3,})(\S*)\s*(.*)$/', $lines[$i], $open)) {
+            // Indented (inside a list item, say), a block would be read but never applied.
+            if (preg_match('/^\s+`{3,}\S*\s+(run|file=|append=|use=|in=)/', $lines[$i])) {
+                throw new RuntimeException('Line '.($i + 1).' has an indented code block with a directive: start it at the line\'s beginning.');
+            }
+
             continue;
         }
 
@@ -111,7 +123,11 @@ function directives(string $info): array
     $directives = [];
 
     foreach ($matches as $match) {
-        $directives[$match[1]] = isset($match[2]) && $match[2] !== '' ? ($match[3] ?? '') ?: $match[2] : true;
+        $directives[$match[1]] = match (true) {
+            ! isset($match[2]) || $match[2] === '' => true,
+            str_starts_with($match[2], '"') => $match[3] ?? '',
+            default => $match[2],
+        };
     }
 
     return $directives;

@@ -25,6 +25,8 @@ concurrency:
 jobs:
   list:
     name: List the recipes
+    # Only in the kit's own repository: a project made with "Use this template" copies this file too.
+    if: github.repository == 'packstub/filament-saas-starter'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -33,6 +35,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: List them
         id: list
@@ -48,12 +52,15 @@ jobs:
             echo "$name"
           done | jq -R . | jq -cs .)
           echo "Recipes: $modules"
+          if [ "$modules" = "[]" ]; then
+            echo "No recipe to verify${ONLY:+ named $ONLY}." >&2
+            exit 1
+          fi
           echo "modules=$modules" >> "$GITHUB_OUTPUT"
 
   verify:
     name: Recipe ${{ matrix.module }}
     needs: list
-    if: needs.list.outputs.modules != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -65,6 +72,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       # The kit's floor: a module that needs a newer PHP must say so in its recipe.
       - name: Setup PHP 8.3
