@@ -18,6 +18,7 @@ Each recipe has the same parts: what you get, what you need, install, the plugin
 | Recipe | What your customers get | Package | Status |
 | --- | --- | --- | --- |
 | [Themes with Nitpick](nitpick.md) | Designed themes and an Appearance page; owners set one for the workspace | `packstub/filament-nitpick` | stable |
+| [Session Replay](session-replay.md) | Nothing they see: your team watches their sessions from `/admin`, next to support logins | `packstub/filament-session-replay` | stable |
 
 ## Coming
 

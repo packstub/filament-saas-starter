@@ -18,12 +18,14 @@
  *                                                   insert it before the line holding "];",
  *                                                   the first one after "function app()"
  *     ```php in=… after="A|B"                       insert it after the line holding B
+ *     ```php in=… replace="A|B"                     put it in place of the line holding B
  *     ```php use=app/Providers/AppServiceProvider.php
  *                                                   `use` lines, added after the file's last one
  *
  * An anchor is one or more strings separated by "|": each is looked for from
  * the line after the previous one. An inserted block takes the indentation of
- * the line above it (`before`) or of the anchor's line (`after`).
+ * the line above it (`before`), of the next line that is not blank (`after`),
+ * or of the line it replaces (`replace`).
  */
 if ($argc !== 3) {
     fwrite(STDERR, "Usage: php scripts/apply-recipe.php <recipe.md> <directory>\n");
@@ -177,8 +179,9 @@ function addImports(string $path, string $imports): void
 function insert(string $path, string $block, array $directives): void
 {
     $lines = explode("\n", existing($path));
-    $before = isset($directives['before']);
-    $anchors = explode('|', (string) ($directives['before'] ?? $directives['after'] ?? throw new RuntimeException('`in` needs `before` or `after`.')));
+    $mode = array_values(array_filter(['before', 'after', 'replace'], fn (string $mode): bool => isset($directives[$mode])))[0]
+        ?? throw new RuntimeException('`in` needs `before`, `after` or `replace`.');
+    $anchors = explode('|', (string) $directives[$mode]);
     $at = -1;
 
     foreach ($anchors as $anchor) {
@@ -189,11 +192,26 @@ function insert(string $path, string $block, array $directives): void
         }
     }
 
-    $position = $before ? $at : $at + 1;
-    preg_match('/^\s*/', $lines[$before ? $at - 1 : $at], $indent);
+    $like = match ($mode) {
+        'before' => $at - 1,
+        'replace' => $at,
+        'after' => nextFilledLine($lines, $at + 1) ?? $at,
+    };
+    preg_match('/^\s*/', $lines[$like], $indent);
 
-    array_splice($lines, $position, 0, reindent($block, $indent[0]));
+    array_splice($lines, $mode === 'after' ? $at + 1 : $at, $mode === 'replace' ? 1 : 0, reindent($block, $indent[0]));
     file_put_contents($path, implode("\n", $lines));
+}
+
+function nextFilledLine(array $lines, int $from): ?int
+{
+    for ($at = $from; $at < count($lines); $at++) {
+        if (trim($lines[$at]) !== '') {
+            return $at;
+        }
+    }
+
+    return null;
 }
 
 /**
