@@ -19,6 +19,7 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
+use Packstub\AccountSwitcher\Facades\AccountSwitcher;
 use Packstub\Features\Facades\Features;
 use UnitEnum;
 
@@ -62,6 +63,15 @@ class ApiTokens extends Page implements HasTable
         return 'Let your scripts and integrations use the API at '.url('/api/v1').' on behalf of this workspace.';
     }
 
+    /**
+     * Support signed in as a customer may revoke a token, never create one:
+     * it would keep API access to the workspace after the support login ends.
+     */
+    public function canCreateTokens(): bool
+    {
+        return static::canAccess() && $this->hasApiAccess() && ! AccountSwitcher::isImpersonating();
+    }
+
     public function hasApiAccess(): bool
     {
         return Features::active('api_access', $this->workspace());
@@ -77,8 +87,8 @@ class ApiTokens extends Page implements HasTable
         return Action::make('create')
             ->label('New API token')
             ->icon(Heroicon::OutlinedPlus)
-            ->authorize(fn (): bool => static::canAccess() && $this->hasApiAccess())
-            ->visible(fn (): bool => $this->hasApiAccess())
+            ->authorize(fn (): bool => $this->canCreateTokens())
+            ->visible(fn (): bool => $this->canCreateTokens())
             ->modalHeading('New API token')
             ->modalSubmitActionLabel('Create token')
             ->schema([

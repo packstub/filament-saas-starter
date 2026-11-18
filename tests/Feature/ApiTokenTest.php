@@ -1,10 +1,12 @@
 <?php
 
 use App\Enums\AuditEventType;
+use App\Filament\Admin\Resources\Users\Pages\ManageUsers;
 use App\Filament\App\Pages\ApiTokens;
 use App\Models\ApiToken;
 use App\Models\AuditEvent;
 use App\Models\Project;
+use App\Models\User;
 use App\Models\Workspace;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Support\Facades\RateLimiter;
@@ -287,4 +289,20 @@ it('keeps working after its creator deletes their account, without their name', 
     expect($workspace->tokens()->sole()->only('created_by_id', 'created_by_name'))->toBe(['created_by_id' => null, 'created_by_name' => null]);
 
     getJson('/api/v1/projects', bearer($plain))->assertOk();
+});
+
+it('never creates a token during a support login, which may still revoke one', function () {
+    $owner = User::factory()->create();
+    $workspace = workspace('pro', $owner);
+    $existing = $workspace->createToken('Leaked script')->accessToken;
+
+    inAdminPanel(admin());
+    livewire(ManageUsers::class)->callAction(TestAction::make('impersonate')->table($owner));
+    inWorkspace($workspace, $owner);
+
+    livewire(ApiTokens::class)
+        ->assertActionHidden('create')
+        ->callAction(TestAction::make('revoke')->table($existing));
+
+    expect($workspace->tokens()->count())->toBe(0);
 });
