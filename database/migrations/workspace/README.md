@@ -6,6 +6,6 @@ Keeping them apart costs nothing today and makes a later move to a database per 
 
 - a ULID primary key (`$table->ulid('id')->primary()` and `HasUlids` on the model);
 - an indexed `workspace_id` with no database foreign key, and none to `users` either;
-- rows removed in `Workspace`'s `deleting` hook when the workspace is deleted.
+- rows removed when the workspace is deleted: in `Workspace`'s `deleting` hook, or in a listener of `App\Events\WorkspaceDeleting`, which the hook dispatches inside the same transaction (a module does it that way, see `docs/modules`). Listen synchronously, never on the queue.
 
 Add the table to `App\Support\DataExport::forWorkspace()` too, so an owner's export holds everything the workspace owns.

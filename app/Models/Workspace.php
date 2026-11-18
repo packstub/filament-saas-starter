@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Billing\StripePrices;
 use App\Enums\AuditEventType;
+use App\Events\WorkspaceDeleting;
 use Database\Factories\WorkspaceFactory;
 use Filament\Facades\Filament;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -76,6 +77,9 @@ class Workspace extends Model
             if (filled(config('cashier.secret'))) {
                 $workspace->cancelStripeSubscription();
             }
+
+            // What a module adds (docs/modules) is removed by its own listener.
+            WorkspaceDeleting::dispatch($workspace);
 
             $workspace->projects()->delete();
 
