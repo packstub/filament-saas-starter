@@ -1,9 +1,11 @@
 <?php
 
+use App\Filament\Admin\Resources\Users\Pages\ManageUsers;
 use App\Filament\App\Pages\Tenancy\EditWorkspace;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
+use Filament\Actions\Testing\TestAction;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Exceptions;
@@ -302,4 +304,25 @@ it('cancels the subscription before deleting, and keeps the workspace when Strip
 
     expect($stripe->requests)->toBe(['DELETE /v1/subscriptions/sub_test'])
         ->and(Workspace::query()->whereKey($workspace->id)->exists())->toBeFalse();
+});
+
+it('never deletes or exports a workspace during a support login', function () {
+    $workspace = workspace();
+    $owner = Teams::ownersOf($workspace)->first();
+
+    inAdminPanel();
+    livewire(ManageUsers::class)->callAction(TestAction::make('impersonate')->table($owner));
+
+    inWorkspace($workspace, $owner);
+
+    expect($owner->can('delete', $workspace))->toBeFalse()
+        ->and($owner->can('export', $workspace))->toBeFalse();
+
+    livewire(EditWorkspace::class)
+        ->assertDontSee('Delete workspace')
+        ->assertDontSee('Export workspace data')
+        ->assertActionHidden('delete')
+        ->assertActionHidden('export');
+
+    expect(Workspace::query()->whereKey($workspace->id)->exists())->toBeTrue();
 });

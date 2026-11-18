@@ -91,7 +91,7 @@ A workspace is the tenant: the `App\Models\Workspace` model, with its slug in th
 - `Workspace::named()` creates a workspace from a name: at most 60 characters, with a unique slug of at most 50, the suffix of a repeated name included.
 - A name that matches a page of the panel gets a suffix too: "New" becomes `new-x7k2`, because `/app/new` is the **New workspace** page. `Workspace::reservedSlugs()` reads those words from the panel's routes, so a page or plugin you add later is covered.
 - **Workspace settings** is `EditWorkspace.php` next to it, open to owners and admins through `app/Policies/WorkspacePolicy.php`.
-- **Delete workspace**, at the bottom of Workspace settings, is for owners only (`WorkspacePolicy::delete()`) and asks for the workspace's name. It runs `$workspace->delete()`: the Stripe subscription is cancelled first, then the projects, members, invitations, subscription rows and overrides go in one transaction. If Stripe refuses, nothing is deleted and the owner is told. Afterwards the panel opens another of their workspaces, or the **New workspace** page.
+- **Delete workspace**, at the bottom of Workspace settings, is for owners only (`WorkspacePolicy::delete()`), never during a support login, and asks for the workspace's name. It runs `$workspace->delete()`: the Stripe subscription is cancelled first, then the projects, members, invitations, subscription rows and overrides go in one transaction. If Stripe refuses, nothing is deleted and the owner is told. Afterwards the panel opens another of their workspaces, or the **New workspace** page.
 - `User::getDefaultTenant()` picks the workspace a person lands in after signing in.
 
 ### Accounts and security
