@@ -6,6 +6,7 @@ use App\Filament\App\Pages\Auth\EditProfile;
 use App\Filament\App\Pages\Tenancy\EditWorkspace;
 use App\Filament\App\Pages\Tenancy\RegisterWorkspace;
 use App\Filament\Plugins;
+use App\Http\Middleware\SetLocale;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Support\Plans;
@@ -16,6 +17,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationGroup;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -68,7 +70,7 @@ class AppPanelProvider extends PanelProvider
             ->tenant(Workspace::class, slugAttribute: 'slug')
             ->tenantRegistration(RegisterWorkspace::class)
             ->tenantProfile(EditWorkspace::class)
-            ->navigationGroups(['Workspace'])
+            ->navigationGroups([NavigationGroup::make(fn (): string => __('app.navigation.workspace'))])
             ->discoverResources(in: app_path('Filament/App/Resources'), for: 'App\Filament\App\Resources')
             ->discoverPages(in: app_path('Filament/App/Pages'), for: 'App\Filament\App\Pages')
             ->discoverWidgets(in: app_path('Filament/App/Widgets'), for: 'App\Filament\App\Widgets')
@@ -78,6 +80,7 @@ class AppPanelProvider extends PanelProvider
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
                 AuthenticateSession::class,
+                SetLocale::class,
                 ShareErrorsFromSession::class,
                 PreventRequestForgery::class,
                 SubstituteBindings::class,
@@ -91,14 +94,14 @@ class AppPanelProvider extends PanelProvider
                 // Members and Invitations pages, roles from config/packstub-teams.php.
                 TeamsPlugin::make()
                     ->roleProvider('simple')
-                    ->navigationGroup('Workspace')
+                    ->navigationGroup(fn (): string => __('app.navigation.workspace'))
                     // Signing up creates a first workspace; following an invitation joins that workspace instead.
                     ->personalTeams(fn (User $user): Workspace => Workspace::named(Teams::personalTeamName($user)))
                     // Seats come from the plan, like every other limit.
                     ->seatLimit(fn (Workspace $workspace): ?int => Features::limit('seats', $workspace)),
                 // The "Your plan" page, with usage against each limit.
                 Plans::plugin()
-                    ->navigationGroup('Workspace'),
+                    ->navigationGroup(fn (): string => __('app.navigation.workspace')),
                 SupportLogins::plugin(),
             ])
             // Optional modules (docs/modules), listed in app/Filament/Plugins.php.

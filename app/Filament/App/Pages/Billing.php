@@ -12,12 +12,12 @@ use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Str;
 use Laravel\Cashier\Cashier;
 use Laravel\Cashier\Exceptions\IncompletePayment;
 use Packstub\Features\Facades\Features;
 use Packstub\Features\Support\Plan;
 use Stripe\Exception\ApiErrorException;
-use UnitEnum;
 
 /**
  * Where a workspace picks and pays for its plan, for owners and admins.
@@ -34,9 +34,22 @@ use UnitEnum;
  */
 class Billing extends Page
 {
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
+    public static function getNavigationGroup(): ?string
+    {
+        return __('app.navigation.workspace');
+    }
 
-    protected static string|UnitEnum|null $navigationGroup = 'Workspace';
+    public static function getNavigationLabel(): string
+    {
+        return __('billing.title');
+    }
+
+    public function getTitle(): string
+    {
+        return __('billing.title');
+    }
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
 
     protected static ?int $navigationSort = 20;
 
@@ -63,15 +76,15 @@ class Billing extends Page
         if (request()->query('checkout') === 'success') {
             Notification::make()
                 ->success()
-                ->title('Thank you!')
-                ->body('Your plan updates as soon as Stripe confirms the payment.')
+                ->title(__('billing.checkout_success.title'))
+                ->body(__('billing.checkout_success.body'))
                 ->send();
         }
     }
 
     public function getSubheading(): ?string
     {
-        return "You're on the ".Features::planLabel().' plan.';
+        return __('billing.subheading', ['plan' => Features::planLabel()]);
     }
 
     public function isConfigured(): bool
@@ -107,7 +120,7 @@ class Billing extends Page
     {
         $intervals = StripePrices::intervals();
 
-        return count($intervals) > 1 ? array_intersect_key(StripePrices::INTERVALS, array_flip($intervals)) : [];
+        return count($intervals) > 1 ? array_intersect_key(StripePrices::labels(), array_flip($intervals)) : [];
     }
 
     /**
@@ -160,7 +173,7 @@ class Billing extends Page
     public function manageAction(): Action
     {
         return Action::make('manage')
-            ->label('Manage billing')
+            ->label(__('billing.actions.manage'))
             ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
             ->color('gray')
             ->authorize(fn (): bool => static::canAccess())
@@ -176,7 +189,7 @@ class Billing extends Page
     public function completePaymentAction(): Action
     {
         return Action::make('completePayment')
-            ->label('Complete payment')
+            ->label(__('billing.actions.complete_payment'))
             ->icon(Heroicon::OutlinedCreditCard)
             ->authorize(fn (): bool => static::canAccess())
             ->action(function () {
@@ -206,7 +219,7 @@ class Billing extends Page
     public function resumeAction(): Action
     {
         return Action::make('resume')
-            ->label('Resume subscription')
+            ->label(__('billing.actions.resume'))
             ->icon(Heroicon::OutlinedPlay)
             ->authorize(fn (): bool => static::canAccess())
             ->action(function () {
@@ -226,7 +239,7 @@ class Billing extends Page
                 $subscription->forceFill(['stripe_status' => $stripeSubscription->status])->save();
                 $this->workspace()->syncPlanFromSubscription();
 
-                Notification::make()->success()->title("You're on the ".Features::planLabel().' plan')->send();
+                Notification::make()->success()->title(__('billing.plan_active', ['plan' => Features::planLabel()]))->send();
 
                 return null;
             });
@@ -239,7 +252,7 @@ class Billing extends Page
     public function subscribeAction(): Action
     {
         return Action::make('subscribe')
-            ->label(fn (array $arguments): string => 'Choose '.Features::planDefinition($arguments['plan'])?->label)
+            ->label(fn (array $arguments): string => __('billing.actions.choose', ['plan' => Features::planDefinition($arguments['plan'])?->label]))
             ->authorize(fn (): bool => static::canAccess())
             ->action(function (array $arguments) {
                 $price = StripePrices::for($arguments['plan'], $arguments['interval'] ?? 'monthly');
@@ -272,11 +285,11 @@ class Billing extends Page
     {
         return Action::make('changePlan')
             ->label(fn (array $arguments): string => $arguments['plan'] === Features::plan()
-                ? 'Switch to '.strtolower(StripePrices::INTERVALS[$arguments['interval'] ?? 'monthly'] ?? '').' billing'
-                : 'Switch to '.Features::planDefinition($arguments['plan'])?->label)
+                ? __('billing.actions.switch_interval', ['interval' => Str::lower(StripePrices::label($arguments['interval'] ?? 'monthly'))])
+                : __('billing.actions.switch_to', ['plan' => Features::planDefinition($arguments['plan'])?->label]))
             ->authorize(fn (): bool => static::canAccess())
             ->requiresConfirmation()
-            ->modalDescription('Your subscription moves to this plan now, and Stripe prorates the difference.')
+            ->modalDescription(__('billing.actions.change_plan_description'))
             ->action(function (array $arguments) {
                 $price = StripePrices::for($arguments['plan'], $arguments['interval'] ?? 'monthly');
 
@@ -298,7 +311,7 @@ class Billing extends Page
                 // The webhook does the same a moment later; this saves the wait.
                 $this->workspace()->syncPlanFromSubscription();
 
-                Notification::make()->success()->title("You're on the ".Features::planLabel().' plan')->send();
+                Notification::make()->success()->title(__('billing.plan_active', ['plan' => Features::planLabel()]))->send();
 
                 return null;
             });
@@ -399,8 +412,8 @@ class Billing extends Page
 
         Notification::make()
             ->danger()
-            ->title('Stripe could not complete that')
-            ->body(app()->isProduction() ? 'Please try again in a moment.' : $exception->getMessage())
+            ->title(__('billing.stripe_failed.title'))
+            ->body(app()->isProduction() ? __('billing.stripe_failed.try_again') : $exception->getMessage())
             ->send();
 
         return null;

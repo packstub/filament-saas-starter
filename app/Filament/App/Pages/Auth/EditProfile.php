@@ -4,12 +4,14 @@ namespace App\Filament\App\Pages\Auth;
 
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\Locales;
 use App\Support\SocialLogin;
 use App\Support\Uploads;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\EditProfile as BaseEditProfile;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Actions;
@@ -33,6 +35,7 @@ class EditProfile extends BaseEditProfile
             $this->getAvatarFormComponent(),
             $this->getNameFormComponent(),
             $this->getEmailFormComponent(),
+            $this->getLocaleFormComponent(),
             $this->getPasswordFormComponent(),
             $this->getPasswordConfirmationFormComponent(),
             $this->getCurrentPasswordFormComponent(),
@@ -47,7 +50,7 @@ class EditProfile extends BaseEditProfile
     protected function getAvatarFormComponent(): Component
     {
         return FileUpload::make('avatar_path')
-            ->label('Profile picture')
+            ->label(__('profile.avatar'))
             ->image()
             ->avatar()
             ->disk(Uploads::diskName())
@@ -57,29 +60,51 @@ class EditProfile extends BaseEditProfile
             ->maxSize(config('uploads.max_size'));
     }
 
+    /**
+     * The language of the panel and of this person's e-mails (`locales` in config/app.php).
+     */
+    protected function getLocaleFormComponent(): Component
+    {
+        return Select::make('locale')
+            ->label(__('app.language'))
+            ->options(Locales::all())
+            ->placeholder(fn (): string => Locales::all()[config('app.locale')] ?? config('app.locale'))
+            ->in(array_keys(Locales::all()));
+    }
+
+    /**
+     * A new language applies from the next page: open this one again in it.
+     */
+    protected function afterSave(): void
+    {
+        if ($this->getUser()->wasChanged('locale')) {
+            $this->redirect(static::getUrl());
+        }
+    }
+
     public function content(Schema $schema): Schema
     {
         return $schema->components([
             $this->getFormContentComponent(),
             ...Arr::wrap($this->getMultiFactorAuthenticationContentComponent()),
-            Section::make('Connected accounts')
+            Section::make(__('profile.connected.heading'))
                 ->description(fn (): string => $this->getUser()->hasPassword()
-                    ? 'Sign in with these as well as your password.'
-                    : 'You sign in with these. Choose a password above to have one more way in.')
+                    ? __('profile.connected.with_password')
+                    : __('profile.connected.without_password'))
                 ->compact()
                 ->secondary()
                 ->visible(fn (): bool => $this->isOwnAccount() && (SocialLogin::enabled() || $this->getUser()->socialAccounts()->exists()))
                 ->schema(fn (): array => [Actions::make($this->connectedAccountActions())]),
-            Section::make('Your data')
-                ->description('Your account, your workspaces and roles, your notifications and every support login into your account, as one JSON file.')
+            Section::make(__('profile.data.heading'))
+                ->description(__('profile.data.description'))
                 ->compact()
                 ->secondary()
                 ->visible(fn (): bool => $this->isOwnAccount())
                 ->schema([
                     Actions::make([$this->downloadDataAction()]),
                 ]),
-            Section::make('Delete account')
-                ->description('Your account, and every workspace where you are the only member, go for good.')
+            Section::make(__('profile.delete.heading'))
+                ->description(__('profile.delete.description'))
                 ->compact()
                 ->secondary()
                 ->visible(fn (): bool => $this->isOwnAccount())
@@ -103,7 +128,7 @@ class EditProfile extends BaseEditProfile
             ->map(fn (string $label, string $provider): Action => $connected->has($provider)
                 ? $this->disconnectAction()->arguments(['provider' => $provider, 'email' => $connected[$provider]->email])
                 : Action::make("connect_{$provider}")
-                    ->label("Connect {$label}")
+                    ->label(__('profile.connected.connect', ['provider' => $label]))
                     ->color('gray')
                     ->url(route('social.redirect', $provider)))
             ->values()
@@ -117,18 +142,20 @@ class EditProfile extends BaseEditProfile
     public function disconnectAction(): Action
     {
         $isLast = fn (): bool => $this->getUser()->signInMethodCount() <= 1;
-        $label = fn (array $arguments): string => SocialLogin::PROVIDERS[$arguments['provider'] ?? ''] ?? 'account';
+        $label = fn (array $arguments): string => SocialLogin::PROVIDERS[$arguments['provider'] ?? ''] ?? __('profile.connected.fallback_provider');
 
         return Action::make('disconnect')
-            ->label(fn (array $arguments): string => 'Disconnect '.$label($arguments).(filled($arguments['email'] ?? null) ? " ({$arguments['email']})" : ''))
+            ->label(fn (array $arguments): string => filled($arguments['email'] ?? null)
+                ? __('profile.connected.disconnect_with_email', ['provider' => $label($arguments), 'email' => $arguments['email']])
+                : __('profile.connected.disconnect', ['provider' => $label($arguments)]))
             ->icon(Heroicon::OutlinedLinkSlash)
             ->color('gray')
             ->disabled($isLast)
-            ->tooltip(fn (): ?string => $isLast() ? 'Choose a password first: this is your only way to sign in.' : null)
+            ->tooltip(fn (): ?string => $isLast() ? __('profile.connected.only_way') : null)
             ->authorize(fn (): bool => $this->isOwnAccount())
             ->requiresConfirmation()
-            ->modalHeading(fn (array $arguments): string => 'Disconnect '.$label($arguments).'?')
-            ->modalDescription(fn (array $arguments): string => 'You will no longer be able to sign in with '.$label($arguments).'.')
+            ->modalHeading(fn (array $arguments): string => __('profile.connected.disconnect_heading', ['provider' => $label($arguments)]))
+            ->modalDescription(fn (array $arguments): string => __('profile.connected.disconnect_description', ['provider' => $label($arguments)]))
             ->action(function (Action $action, array $arguments) use ($isLast, $label): void {
                 if ($isLast()) {
                     $action->halt();
@@ -136,7 +163,7 @@ class EditProfile extends BaseEditProfile
 
                 $this->getUser()->socialAccounts()->where('provider', $arguments['provider'] ?? null)->delete();
 
-                Notification::make()->success()->title($label($arguments).' is disconnected.')->send();
+                Notification::make()->success()->title(__('profile.connected.disconnected', ['provider' => $label($arguments)]))->send();
             });
     }
 
@@ -159,7 +186,7 @@ class EditProfile extends BaseEditProfile
     public function downloadDataAction(): Action
     {
         return Action::make('downloadData')
-            ->label('Download your data')
+            ->label(__('profile.data.download'))
             ->icon(Heroicon::OutlinedArrowDownTray)
             ->color('gray')
             ->authorize(fn (): bool => $this->isOwnAccount())
@@ -175,29 +202,29 @@ class EditProfile extends BaseEditProfile
     public function deleteAccountAction(): Action
     {
         return Action::make('deleteAccount')
-            ->label('Delete account')
+            ->label(__('profile.delete.action'))
             ->icon(Heroicon::OutlinedTrash)
             ->color('danger')
             ->authorize(fn (): bool => $this->isOwnAccount())
             ->requiresConfirmation()
-            ->modalHeading('Delete your account?')
+            ->modalHeading(__('profile.delete.modal_heading'))
             ->modalDescription(fn (): string => $this->blockingWorkspaces()
-                ? 'First hand over ownership of these workspaces under Members, or delete them: '.implode(', ', $this->blockingWorkspaces()).'.'
-                : 'You leave every workspace you share with others. Workspaces where you are the only member are deleted, and their subscriptions cancelled. This cannot be undone.')
-            ->modalSubmitAction(fn ($action) => $this->blockingWorkspaces() ? false : $action->label('Delete account'))
+                ? __('profile.delete.blocked', ['workspaces' => implode(', ', $this->blockingWorkspaces())])
+                : __('profile.delete.modal_description'))
+            ->modalSubmitAction(fn ($action) => $this->blockingWorkspaces() ? false : $action->label(__('profile.delete.action')))
             ->schema(fn (): array => match (true) {
                 (bool) $this->blockingWorkspaces() => [],
                 // Someone who signs in with Google or GitHub only confirms with their address.
                 ! $this->getUser()->hasPassword() => [
                     TextInput::make('email')
-                        ->label('Type your e-mail address to confirm')
+                        ->label(__('profile.delete.confirm_email'))
                         ->in([$this->getUser()->email])
-                        ->validationMessages(['in' => 'That is not your e-mail address.'])
+                        ->validationMessages(['in' => __('profile.delete.wrong_email')])
                         ->required(),
                 ],
                 default => [
                     TextInput::make('password')
-                        ->label('Your password')
+                        ->label(__('profile.delete.password'))
                         ->password()
                         ->autocomplete('current-password')
                         ->currentPassword(guard: Filament::getAuthGuard())
@@ -215,7 +242,7 @@ class EditProfile extends BaseEditProfile
                     // A workspace became theirs alone to own while the dialog was open.
                     Notification::make()
                         ->danger()
-                        ->title('Hand over or delete the workspaces you are the only owner of first')
+                        ->title(__('profile.delete.hand_over_first'))
                         ->send();
 
                     $action->halt();
@@ -224,8 +251,8 @@ class EditProfile extends BaseEditProfile
 
                     Notification::make()
                         ->danger()
-                        ->title('A subscription could not be cancelled, so your account was kept')
-                        ->body('Please try again in a moment.')
+                        ->title(__('profile.delete.stripe_failed'))
+                        ->body(__('profile.delete.try_again'))
                         ->send();
 
                     $action->halt();

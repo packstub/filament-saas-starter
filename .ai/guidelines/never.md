@@ -15,4 +15,5 @@ Each of these looks harmless and breaks something the tests or the customers rel
 - Never sign in an admin through Google or GitHub, or skip two-factor authentication on a social sign-in.
 - Never store an uploaded file outside its owner's folder (`App\Support\Uploads::workspaceDirectory()` or `userDirectory()`): deletion removes files by that folder, and the models refuse a path outside it.
 - Never accept SVG or HTML uploads on a public disk: they run scripts on your domain.
+- Never write text a person reads straight into a page, a notification or a view: add a key to every `lang/<locale>` file and call `__()` (`docs/translations.md`).
 - Never leave a test red or Pint unhappy: `composer test` passes before a change is done.

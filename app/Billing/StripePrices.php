@@ -9,11 +9,29 @@ namespace App\Billing;
  */
 final class StripePrices
 {
-    /** The billing intervals a plan can be sold at, with their labels. */
+    /** The billing intervals a plan can be sold at; the keys matter, labels() gives the words people read. */
     public const INTERVALS = [
         'monthly' => 'Monthly',
         'yearly' => 'Yearly',
     ];
+
+    /**
+     * The intervals with their labels in the current language, as interval => label.
+     *
+     * @return array<string, string>
+     */
+    public static function labels(): array
+    {
+        return array_map(fn (string $interval): string => self::label($interval), array_combine(array_keys(self::INTERVALS), array_keys(self::INTERVALS)));
+    }
+
+    /**
+     * The label of one interval in the current language ("Monthly"); the key itself for an unknown one.
+     */
+    public static function label(string $interval): string
+    {
+        return array_key_exists($interval, self::INTERVALS) ? __("billing.intervals.{$interval}") : $interval;
+    }
 
     /**
      * Whether plans can be sold. Without a Stripe secret the billing page

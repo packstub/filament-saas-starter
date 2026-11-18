@@ -24,17 +24,17 @@ class RevenueOverview extends StatsOverviewWidget
         $rate = RevenueMetrics::churnRate();
 
         return [
-            Stat::make('Monthly recurring revenue', RevenueMetrics::format($mrr))
-                ->description(RevenueMetrics::format($mrr * 12).' a year')
+            Stat::make(__('admin.revenue.mrr'), RevenueMetrics::format($mrr))
+                ->description(__('admin.revenue.per_year', ['amount' => RevenueMetrics::format($mrr * 12)]))
                 ->icon(Heroicon::OutlinedBanknotes),
-            Stat::make('Paying subscriptions', RevenueMetrics::activeSubscriptions())
-                ->description('Active or retrying a payment')
+            Stat::make(__('admin.revenue.subscriptions'), RevenueMetrics::activeSubscriptions())
+                ->description(__('admin.revenue.subscriptions_description'))
                 ->icon(Heroicon::OutlinedCreditCard),
-            Stat::make('On a free trial', RevenueMetrics::trials())
-                ->description('Not counted in revenue yet')
+            Stat::make(__('admin.revenue.trials'), RevenueMetrics::trials())
+                ->description(__('admin.revenue.trials_description'))
                 ->icon(Heroicon::OutlinedGift),
-            Stat::make('Churned, last 30 days', RevenueMetrics::churned())
-                ->description($rate === null ? 'No subscriptions yet' : $rate.'% of subscriptions')
+            Stat::make(__('admin.revenue.churned'), RevenueMetrics::churned())
+                ->description($rate === null ? __('admin.revenue.no_subscriptions') : __('admin.revenue.churn_rate', ['rate' => $rate]))
                 ->descriptionColor($rate ? 'danger' : 'gray')
                 ->icon(Heroicon::OutlinedArrowTrendingDown),
         ];

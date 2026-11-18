@@ -14,7 +14,6 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use UnitEnum;
 
 /**
  * The workspace's audit log, for owners and admins: who joined, left,
@@ -24,11 +23,24 @@ use UnitEnum;
  */
 class Activity extends Page implements HasTable
 {
+    public static function getNavigationGroup(): ?string
+    {
+        return __('app.navigation.workspace');
+    }
+
     use InteractsWithTable;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
+    public static function getNavigationLabel(): string
+    {
+        return __('activity.title');
+    }
 
-    protected static string|UnitEnum|null $navigationGroup = 'Workspace';
+    public function getTitle(): string
+    {
+        return __('activity.title');
+    }
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
     protected static ?int $navigationSort = 30;
 
@@ -49,25 +61,28 @@ class Activity extends Page implements HasTable
             ->query(fn () => AuditEvent::query()->where('workspace_id', Filament::getTenant()->getKey()))
             ->columns([
                 TextColumn::make('event')
+                    ->label(__('activity.columns.event'))
                     ->badge(),
                 TextColumn::make('description')
+                    ->label(__('activity.columns.description'))
                     ->state(fn (AuditEvent $record): string => $record->description())
                     ->wrap(),
                 TextColumn::make('actor_name')
-                    ->label('By')
+                    ->label(__('activity.columns.by'))
                     ->state(fn (AuditEvent $record): string => $record->actorLabel())
                     ->searchable(),
                 TextColumn::make('created_at')
-                    ->label('When')
+                    ->label(__('activity.columns.when'))
                     ->since()
                     ->dateTimeTooltip()
                     ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('event')
+                    ->label(__('activity.columns.event'))
                     ->options(AuditEventType::class),
             ])
             ->defaultSort('created_at', 'desc')
-            ->emptyStateHeading('Nothing has happened yet');
+            ->emptyStateHeading(__('activity.empty'));
     }
 }

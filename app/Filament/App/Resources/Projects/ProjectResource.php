@@ -30,6 +30,16 @@ class ProjectResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'name';
 
+    public static function getModelLabel(): string
+    {
+        return __('projects.label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('projects.plural_label');
+    }
+
     /**
      * ProjectPolicy asks for the workspace of every row, so it is loaded with them.
      *
@@ -44,9 +54,11 @@ class ProjectResource extends Resource
     {
         return $schema->components([
             TextInput::make('name')
+                ->label(__('projects.name'))
                 ->required()
                 ->maxLength(80),
             Select::make('status')
+                ->label(__('projects.status'))
                 ->options(ProjectStatus::class)
                 ->default(ProjectStatus::Active)
                 ->required(),
@@ -58,12 +70,14 @@ class ProjectResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')
+                    ->label(__('projects.name'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('status')
+                    ->label(__('projects.status'))
                     ->badge(),
                 TextColumn::make('updated_at')
-                    ->label('Updated')
+                    ->label(__('projects.updated'))
                     ->since()
                     ->sortable(),
             ])

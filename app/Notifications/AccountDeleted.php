@@ -28,7 +28,7 @@ class AccountDeleted extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject('Your '.config('app.name').' account was deleted')
+            ->subject(__('mail.account_deleted.subject', ['app' => config('app.name')]))
             ->markdown('mail.account-deleted', ['name' => $this->name]);
     }
 }

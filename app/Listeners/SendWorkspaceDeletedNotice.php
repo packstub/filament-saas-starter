@@ -22,14 +22,14 @@ class SendWorkspaceDeletedNotice
         $workspace = $event->workspace->name;
         $user = auth()->user();
         $deletedBy = $user instanceof User ? $user->name : null;
-        $members = Teams::membersOf($event->workspace)->pluck('name', 'email')->all();
+        $members = Teams::membersOf($event->workspace)->get(['name', 'email', 'locale'])->keyBy('email');
 
         DB::afterCommit(function () use ($workspace, $deletedBy, $members): void {
-            $stillHere = User::query()->whereIn('email', array_keys($members))->pluck('email')->all();
+            $stillHere = User::query()->whereIn('email', $members->keys())->pluck('email')->all();
 
             foreach ($stillHere as $email) {
-                Notification::route('mail', [$email => $members[$email]])
-                    ->notify(new WorkspaceDeleted($workspace, $deletedBy));
+                Notification::route('mail', [$email => $members[$email]->name])
+                    ->notify((new WorkspaceDeleted($workspace, $deletedBy))->locale($members[$email]->locale));
             }
         });
     }

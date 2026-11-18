@@ -1,13 +1,13 @@
 <x-mail::message :workspace="$workspace" :logo="$logo">
-# Your payment did not go through
+# {{ __('mail.payment_failed.heading') }}
 
-Stripe could not collect the latest payment for **{{ $workspace }}**. It will try again over the next few days, and the workspace keeps its plan in the meantime.
+{{ __('mail.payment_failed.body', ['workspace' => $workspace]) }}
 
-Update the card on the Billing page to settle it now.
+{{ __('mail.payment_failed.update_card') }}
 
 <x-mail::button :url="$url">
-Open Billing
+{{ __('mail.payment_failed.button') }}
 </x-mail::button>
 
-You receive this as an owner of {{ $workspace }}.
+{{ __('mail.payment_failed.reason', ['workspace' => $workspace]) }}
 </x-mail::message>

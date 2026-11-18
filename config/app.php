@@ -85,6 +85,17 @@ return [
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
     /*
+    | The languages people can choose, on the Profile page and in the home
+    | page's footer, each with a folder in lang/. Add one with its name as
+    | it is written in that language (docs/translations.md).
+    */
+
+    'locales' => [
+        'en' => 'English',
+        'es' => 'Español',
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Encryption Key
     |--------------------------------------------------------------------------

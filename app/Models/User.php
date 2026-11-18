@@ -16,6 +16,7 @@ use Filament\Models\Contracts\HasDefaultTenant;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -31,9 +32,9 @@ use Packstub\AccountSwitcher\Concerns\HasLinkedAccounts;
 use Packstub\Teams\Concerns\HasTeamMemberships;
 use Packstub\Teams\Facades\Teams;
 
-#[Fillable(['name', 'email', 'password', 'avatar_path'])]
+#[Fillable(['name', 'email', 'password', 'avatar_path', 'locale'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasAvatar, HasDefaultTenant, HasTenants, MustVerifyEmail
+class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasAvatar, HasDefaultTenant, HasLocalePreference, HasTenants, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory;
@@ -53,6 +54,7 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     protected $attributes = [
         'is_admin' => false,
         'avatar_path' => null,
+        'locale' => null,
     ];
 
     protected static function booted(): void
@@ -83,6 +85,15 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'password' => 'hashed',
             'is_admin' => 'boolean',
         ];
+    }
+
+    /**
+     * The language of the e-mails and notifications this person receives:
+     * the one chosen on their Profile page, or the app's default.
+     */
+    public function preferredLocale(): ?string
+    {
+        return $this->locale;
     }
 
     /**

@@ -16,7 +16,8 @@ class SendAccountDeletedNotice
     {
         $email = $event->user->email;
         $name = $event->user->name;
+        $locale = $event->user->preferredLocale();
 
-        DB::afterCommit(fn () => Notification::route('mail', [$email => $name])->notify(new AccountDeleted($name)));
+        DB::afterCommit(fn () => Notification::route('mail', [$email => $name])->notify((new AccountDeleted($name))->locale($locale)));
     }
 }

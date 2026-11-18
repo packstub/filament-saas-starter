@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Plugins;
+use App\Http\Middleware\SetLocale;
 use App\Support\Plans;
 use App\Support\SupportLogins;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
@@ -10,6 +11,7 @@ use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
+use Filament\Navigation\NavigationGroup;
 use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
@@ -43,7 +45,10 @@ class AdminPanelProvider extends PanelProvider
             ->multiFactorAuthentication([
                 AppAuthentication::make()->recoverable(),
             ], isRequired: ! app()->isLocal())
-            ->navigationGroups(['Customers', 'Plans'])
+            ->navigationGroups([
+                NavigationGroup::make(fn (): string => __('app.navigation.customers')),
+                NavigationGroup::make(fn (): string => __('app.navigation.plans')),
+            ])
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\Filament\Admin\Resources')
             // Revenue, subscriptions and growth, from the app's own tables (App\Billing\RevenueMetrics).
             ->discoverWidgets(in: app_path('Filament/Admin/Widgets'), for: 'App\Filament\Admin\Widgets')
@@ -53,6 +58,7 @@ class AdminPanelProvider extends PanelProvider
                 AddQueuedCookiesToResponse::class,
                 StartSession::class,
                 AuthenticateSession::class,
+                SetLocale::class,
                 ShareErrorsFromSession::class,
                 PreventRequestForgery::class,
                 SubstituteBindings::class,
@@ -67,7 +73,7 @@ class AdminPanelProvider extends PanelProvider
                 Plans::plugin()
                     ->planPage(null)
                     ->adminPages()
-                    ->navigationGroup('Plans'),
+                    ->navigationGroup(fn (): string => __('app.navigation.plans')),
                 SupportLogins::plugin(),
             ])
             // Optional modules (docs/modules), listed in app/Filament/Plugins.php.

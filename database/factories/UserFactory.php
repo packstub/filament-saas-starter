@@ -33,6 +33,7 @@ class UserFactory extends Factory
             'app_authentication_secret' => null,
             'app_authentication_recovery_codes' => null,
             'avatar_path' => null,
+            'locale' => null,
         ];
     }
 

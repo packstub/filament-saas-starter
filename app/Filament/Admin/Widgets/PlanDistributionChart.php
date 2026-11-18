@@ -13,11 +13,14 @@ class PlanDistributionChart extends ChartWidget
 {
     protected static ?int $sort = 4;
 
-    protected ?string $heading = 'Workspaces by plan';
-
     protected ?string $pollingInterval = null;
 
     protected ?string $maxHeight = '260px';
+
+    public function getHeading(): string
+    {
+        return __('admin.plan_distribution.heading');
+    }
 
     protected function getType(): string
     {
@@ -30,7 +33,7 @@ class PlanDistributionChart extends ChartWidget
 
         return [
             'datasets' => [[
-                'label' => 'Workspaces',
+                'label' => __('admin.plan_distribution.dataset'),
                 'data' => array_values($plans),
                 'backgroundColor' => array_slice(['#94a3b8', '#6366f1', '#14b8a6', '#f59e0b', '#ec4899', '#0ea5e9'], 0, count($plans)),
             ]],

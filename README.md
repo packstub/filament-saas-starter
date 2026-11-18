@@ -144,6 +144,10 @@ Every e-mail the app sends, Filament's verification and password reset included,
 
 Receipts and invoices come from Stripe: turn them on in Stripe's customer e-mail settings, where you can also brand them. All of these are queued, so a worker must run in production. Preview one with `php artisan tinker` and `(new App\Notifications\AccountDeleted('Ada'))->toMail(new Illuminate\Notifications\AnonymousNotifiable)->render()`, or send them to [Mailpit](https://mailpit.axllent.org) locally with `MAIL_MAILER=smtp` and `MAIL_PORT=1025`.
 
+### Languages
+
+The kit's own text lives in `lang/en` and `lang/es` (Spanish, complete, as the example), behind `__()`. Filament is translated too; the pages of the Packstub plugins (Members, Invitations, Your plan) are English-only for now, and can be translated in `lang/vendor` (see the guide). A signed-in person picks a **Language** on the **Profile** page, which their e-mails follow too; a visitor picks one in the home page's footer. The languages on offer are `locales` in `config/app.php`. [docs/translations.md](docs/translations.md) shows where each text lives and how to add a language; `TranslationsTest` fails when a key is missing in one of them.
+
 ### Signing in with Google and GitHub
 
 Create an OAuth app with [Google](https://console.cloud.google.com/apis/credentials) and/or [GitHub](https://github.com/settings/developers), register the callback URL (`https://my-app.test/auth/google/callback`, `https://my-app.test/auth/github/callback`), and fill in `.env`:
@@ -363,6 +367,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `HomePageTest`: the home page links to sign-up and log-in, its pricing follows the billing config and the free trial, the meta tags, canonical and sitemap URLs on `APP_URL` whatever the request's host, the sitemap with and without the legal placeholders, robots.txt in and out of production, the Terms and Privacy placeholders and their switch.
 - `SignUpTest`: signing up creates a workspace with the person as owner, the panel opens after e-mail verification, long names, a second workspace, guests and other people's workspaces stay closed.
 - `MailTest`: the branded layout and theme on every e-mail, the workspace's name and logo on its invitation, the failed payment notice to owners only and once per failure, the deletion notices to members and to a deleted account, none after a rollback.
+- `TranslationsTest`: every key and placeholder in every language, a person's language in the panel and their e-mails, the home page's language switch.
 - `UploadsTest`: logos and profile pictures stored in their owner's folder and shown in the menus, size and type limits, a replaced file removed, never another workspace's or person's file, the folders removed when a workspace or an account is deleted (and kept when the deletion fails), the exports.
 - `DataExportTest`: what the personal and the workspace exports hold and leave out, the download routes and who may use them.
 - `AccountTest`: deleting an account with its password, what goes with it and what stays, the only owner of a shared workspace, support logins.

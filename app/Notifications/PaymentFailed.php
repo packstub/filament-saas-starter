@@ -33,7 +33,7 @@ class PaymentFailed extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject("We could not collect the payment for {$this->workspace->name}")
+            ->subject(__('mail.payment_failed.subject', ['workspace' => $this->workspace->name]))
             ->markdown('mail.payment-failed', [
                 'workspace' => $this->workspace->name,
                 'logo' => $this->workspace->getFilamentAvatarUrl(),
@@ -48,10 +48,10 @@ class PaymentFailed extends Notification implements ShouldQueue
     {
         return FilamentNotification::make()
             ->danger()
-            ->title("The payment for {$this->workspace->name} failed")
-            ->body('Update the card on the Billing page to keep your plan.')
+            ->title(__('mail.payment_failed.database_title', ['workspace' => $this->workspace->name]))
+            ->body(__('mail.payment_failed.database_body'))
             ->actions([
-                Action::make('billing')->label('Open Billing')->url($this->billingUrl())->markAsRead(),
+                Action::make('billing')->label(__('mail.payment_failed.database_action'))->url($this->billingUrl())->markAsRead(),
             ])
             ->getDatabaseMessage();
     }

@@ -24,8 +24,23 @@ class ApiToken extends PersonalAccessToken
      * What a token may be allowed to do, with the label the API tokens page shows.
      * Each one is checked on its routes in routes/api.php (`abilities:…`).
      */
-    public const ABILITIES = [
-        'projects:read' => 'Read projects',
-        'projects:write' => 'Create projects',
-    ];
+    public const ABILITIES = ['projects:read', 'projects:write'];
+
+    /**
+     * The abilities as ability => label, in the current language (lang/*\/api_tokens.php).
+     *
+     * @return array<string, string>
+     */
+    public static function abilityOptions(): array
+    {
+        return array_combine(self::ABILITIES, array_map(self::abilityLabel(...), self::ABILITIES));
+    }
+
+    /**
+     * The label of one ability; the ability itself when it is not a known one.
+     */
+    public static function abilityLabel(string $ability): string
+    {
+        return in_array($ability, self::ABILITIES, true) ? __("api_tokens.abilities.{$ability}") : $ability;
+    }
 }

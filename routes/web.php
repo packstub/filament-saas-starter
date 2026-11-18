@@ -5,7 +5,9 @@ use App\Http\Controllers\Auth\SocialRedirectController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\PersonalDataExportController;
 use App\Http\Controllers\WorkspaceDataExportController;
+use App\Support\Locales;
 use App\Support\SiteUrl;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 // The public site: the home page, the legal pages and what search engines read.
@@ -14,6 +16,17 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', HomeController::class)->name('home');
 Route::view('/terms', 'site.terms')->name('terms');
 Route::view('/privacy', 'site.privacy')->name('privacy');
+
+// The language picked in the home page's footer: for the visit, and as a signed-in person's
+// own language (the one on their Profile page), which SetLocale puts first.
+Route::get('/locale/{locale}', function (Request $request, string $locale) {
+    abort_unless(Locales::supports($locale), 404);
+
+    session(['locale' => $locale]);
+    $request->user()?->update(['locale' => $locale]);
+
+    return redirect()->back(fallback: route('home'));
+})->name('locale');
 
 // The data exports (App\Support\DataExport), streamed straight to the browser.
 // The Profile and Workspace settings pages link here.

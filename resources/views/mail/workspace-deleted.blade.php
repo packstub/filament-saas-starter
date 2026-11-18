@@ -1,16 +1,16 @@
 <x-mail::message :workspace="$workspace">
-# {{ $workspace }} was deleted
+# {{ __('mail.workspace_deleted.heading', ['workspace' => $workspace]) }}
 
 @if ($deletedBy)
-{{ $deletedBy }} deleted the workspace **{{ $workspace }}**.
+{{ __('mail.workspace_deleted.deleted_by', ['person' => $deletedBy, 'workspace' => $workspace]) }}
 @else
-The workspace **{{ $workspace }}** was deleted.
+{{ __('mail.workspace_deleted.deleted', ['workspace' => $workspace]) }}
 @endif
-Its projects, members and invitations are gone, and its subscription was cancelled.
+{{ __('mail.workspace_deleted.gone') }}
 
-Your account and your other workspaces are not affected.
+{{ __('mail.workspace_deleted.unaffected') }}
 
 <x-mail::button :url="route('filament.app.tenant')">
-Open {{ config('app.name') }}
+{{ __('mail.workspace_deleted.button', ['app' => config('app.name')]) }}
 </x-mail::button>
 </x-mail::message>

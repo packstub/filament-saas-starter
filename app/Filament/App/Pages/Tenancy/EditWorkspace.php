@@ -26,7 +26,7 @@ class EditWorkspace extends EditTenantProfile
 {
     public static function getLabel(): string
     {
-        return 'Workspace settings';
+        return __('workspace.settings');
     }
 
     public function form(Schema $schema): Schema
@@ -43,14 +43,14 @@ class EditWorkspace extends EditTenantProfile
     {
         return $schema->components([
             $this->getFormContentComponent(),
-            Section::make('Export workspace data')
-                ->description('The workspace, its members, invitations, subscriptions, overrides and projects, as one JSON file.')
+            Section::make(__('workspace.export.heading'))
+                ->description(__('workspace.export.description'))
                 ->visible(fn (): bool => $this->canExport())
                 ->schema([
                     Actions::make([$this->exportAction()]),
                 ]),
-            Section::make('Delete workspace')
-                ->description('Its projects, members, invitations and subscription go with it, for good.')
+            Section::make(__('workspace.delete.heading'))
+                ->description(__('workspace.delete.description'))
                 ->visible(fn (): bool => $this->canDelete())
                 ->schema([
                     Actions::make([$this->deleteAction()]),
@@ -65,8 +65,8 @@ class EditWorkspace extends EditTenantProfile
     protected function logoUpload(): FileUpload
     {
         return FileUpload::make('logo_path')
-            ->label('Logo')
-            ->helperText('Shown in the workspace menu and at the top of the e-mails about this workspace. PNG, JPEG or WebP; square works best.')
+            ->label(__('workspace.logo.label'))
+            ->helperText(__('workspace.logo.help'))
             ->image()
             ->avatar()
             ->disk(Uploads::diskName())
@@ -83,7 +83,7 @@ class EditWorkspace extends EditTenantProfile
     public function exportAction(): Action
     {
         return Action::make('export')
-            ->label('Download workspace data')
+            ->label(__('workspace.export.action'))
             ->icon(Heroicon::OutlinedArrowDownTray)
             ->color('gray')
             ->authorize(fn (): bool => $this->canExport())
@@ -99,20 +99,20 @@ class EditWorkspace extends EditTenantProfile
     public function deleteAction(): Action
     {
         return Action::make('delete')
-            ->label('Delete workspace')
+            ->label(__('workspace.delete.action'))
             ->icon(Heroicon::OutlinedTrash)
             ->color('danger')
             ->authorize(fn (): bool => $this->canDelete())
             ->requiresConfirmation()
-            ->modalHeading(fn (): string => "Delete {$this->workspace()->name}?")
-            ->modalDescription('Its projects, members, invitations and subscription are removed, and the subscription is cancelled now. This cannot be undone.')
-            ->modalSubmitActionLabel('Delete workspace')
+            ->modalHeading(fn (): string => __('workspace.delete.modal_heading', ['workspace' => $this->workspace()->name]))
+            ->modalDescription(__('workspace.delete.modal_description'))
+            ->modalSubmitActionLabel(__('workspace.delete.action'))
             ->schema([
                 TextInput::make('name')
-                    ->label('Type the name of the workspace to confirm')
+                    ->label(__('workspace.delete.confirm_name'))
                     ->required()
                     ->in(fn (): array => [$this->workspace()->name])
-                    ->validationMessages(['in' => 'That is not the name of this workspace.']),
+                    ->validationMessages(['in' => __('workspace.delete.wrong_name')]),
             ])
             ->action(function (Action $action) {
                 try {
@@ -122,14 +122,14 @@ class EditWorkspace extends EditTenantProfile
 
                     Notification::make()
                         ->danger()
-                        ->title('The subscription could not be cancelled, so the workspace was kept')
-                        ->body('Please try again in a moment.')
+                        ->title(__('workspace.delete.stripe_failed'))
+                        ->body(__('workspace.delete.try_again'))
                         ->send();
 
                     $action->halt();
                 }
 
-                Notification::make()->success()->title('Workspace deleted')->send();
+                Notification::make()->success()->title(__('workspace.delete.deleted'))->send();
 
                 // The panel picks another workspace of theirs, or offers to create one.
                 return redirect()->route('filament.app.tenant');

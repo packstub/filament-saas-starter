@@ -1,55 +1,55 @@
 <x-filament-panels::page>
     {{-- For the developer: what is still missing in .env. Customers in production never see key names. --}}
     @if ($this->getMissingKeys() && ! app()->isProduction())
-        <x-filament::section icon="heroicon-o-key" heading="Add your Stripe keys">
+        <x-filament::section icon="heroicon-o-key" :heading="__('billing.setup.heading')">
             <x-slot name="description">
-                Billing is ready and waiting for a Stripe account. Until then every workspace stays on its current plan.
+                {{ __('billing.setup.description') }}
             </x-slot>
 
             <ol style="display:flex;flex-direction:column;gap:.5rem;font-size:.875rem;list-style:decimal;padding-inline-start:1.25rem">
                 <li>
-                    In the Stripe dashboard (test mode), create a product for each paid plan, with a monthly recurring price and, if you sell it yearly, a yearly one.
+                    {{ __('billing.setup.step_product') }}
                 </li>
                 <li>
-                    Fill in these keys in <code>.env</code>:
+                    {!! __('billing.setup.step_keys') !!}
                     @foreach ($this->getMissingKeys() as $key)
                         <code>{{ $key }}</code>@if (! $loop->last), @endif
                     @endforeach
                 </li>
                 <li>
-                    Forward Stripe's webhooks to this app:
+                    {{ __('billing.setup.step_webhook') }}
                     <code>stripe listen --forward-to {{ route('cashier.webhook') }}</code>
                 </li>
             </ol>
         </x-filament::section>
     @elseif (! $this->isConfigured())
-        <x-filament::section icon="heroicon-o-clock" heading="Paid plans are on their way">
+        <x-filament::section icon="heroicon-o-clock" :heading="__('billing.coming_soon.heading')">
             <x-slot name="description">
-                You can keep working on your current plan in the meantime.
+                {{ __('billing.coming_soon.description') }}
             </x-slot>
         </x-filament::section>
     @endif
 
     @if ($this->isConfigured() && $this->trialEndsAt())
-        <x-filament::section icon="heroicon-o-gift" icon-color="primary" heading="Your free trial ends on {{ $this->trialEndsAt()->toFormattedDateString() }}">
+        <x-filament::section icon="heroicon-o-gift" icon-color="primary" :heading="__('billing.trial.heading', ['date' => $this->trialEndsAt()->isoFormat('ll')])">
             <x-slot name="description">
-                Your card is charged then, and the plan carries on. Cancel any time before under "Manage billing".
+                {{ __('billing.trial.description') }}
             </x-slot>
         </x-filament::section>
     @endif
 
     @if ($this->isConfigured() && $this->needsFirstPayment())
-        <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning" heading="Your payment is not finished yet">
+        <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning" :heading="__('billing.first_payment.heading')">
             <x-slot name="description">
-                Complete it to start your plan. Until then the workspace stays on its current plan.
+                {{ __('billing.first_payment.description') }}
             </x-slot>
 
             {{ $this->completePaymentAction }}
         </x-filament::section>
     @elseif ($this->isConfigured() && $this->isPaused())
-        <x-filament::section icon="heroicon-o-pause-circle" icon-color="warning" heading="Your trial ended without a payment method">
+        <x-filament::section icon="heroicon-o-pause-circle" icon-color="warning" :heading="__('billing.paused.heading')">
             <x-slot name="description">
-                Add a card under "Manage billing", then resume your subscription. Until then the workspace is on the free plan.
+                {{ __('billing.paused.description') }}
             </x-slot>
 
             <div style="display:flex;gap:.75rem;flex-wrap:wrap">
@@ -58,9 +58,9 @@
             </div>
         </x-filament::section>
     @elseif ($this->isConfigured() && $this->needsPayment())
-        <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning" heading="Your last payment did not go through">
+        <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning" :heading="__('billing.payment_failed.heading')">
             <x-slot name="description">
-                Update your payment method to keep your plan. You can change plans again once the payment is settled.
+                {{ __('billing.payment_failed.description') }}
             </x-slot>
 
             {{ $this->manageAction }}
@@ -69,7 +69,7 @@
 
     @if ($this->getIntervals())
         <div style="display:flex;justify-content:center">
-            <x-filament::tabs label="Billing interval">
+            <x-filament::tabs :label="__('billing.interval_label')">
                 @foreach ($this->getIntervals() as $key => $label)
                     <x-filament::tabs.item :active="$this->selectedInterval() === $key" wire:click="$set('interval', '{{ $key }}')">
                         {{ $label }}
@@ -86,7 +86,7 @@
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">
                         <div style="font-size:1rem;font-weight:600">{{ $plan['label'] }}</div>
                         @if ($plan['current'])
-                            <x-filament::badge color="success">Current plan</x-filament::badge>
+                            <x-filament::badge color="success">{{ __('billing.plan.current') }}</x-filament::badge>
                         @endif
                     </div>
 
@@ -95,12 +95,12 @@
                     @endif
 
                     @if ($plan['sold'] && $this->isConfigured() && $this->trialDaysOnOffer())
-                        <x-filament::badge color="info" style="align-self:flex-start">{{ $this->trialDaysOnOffer() }}-day free trial</x-filament::badge>
+                        <x-filament::badge color="info" style="align-self:flex-start">{{ trans_choice('billing.trial.badge', $this->trialDaysOnOffer(), ['days' => $this->trialDaysOnOffer()]) }}</x-filament::badge>
                     @endif
 
                     @if ($plan['per_seat'])
                         <div style="font-size:.75rem;opacity:.7">
-                            Per member: {{ $this->billableSeats() }} {{ str('member')->plural($this->billableSeats()) }} today, updated as people join and leave.
+                            {{ trans_choice('billing.plan.per_seat', $this->billableSeats()) }}
                         </div>
                     @endif
 
@@ -124,7 +124,7 @@
                             </div>
                         @elseif ($this->hasSubscription())
                             <div style="margin-top:auto;font-size:.75rem;opacity:.7">
-                                Cancel your subscription under "Manage billing" to move to this plan.
+                                {{ __('billing.plan.cancel_to_switch') }}
                             </div>
                         @endif
                     @endif
