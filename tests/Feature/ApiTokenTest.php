@@ -272,3 +272,19 @@ it('takes a workspace\'s tokens with it when it is deleted', function () {
 
     getJson('/api/v1/projects', bearer($token))->assertUnauthorized();
 });
+
+it('keeps working after its creator deletes their account, without their name', function () {
+    $workspace = workspace('pro');
+    $admin = memberOf($workspace, 'admin');
+    inWorkspace($workspace, $admin);
+
+    $plain = livewire(ApiTokens::class)
+        ->callAction('create', ['name' => 'Zapier', 'abilities' => ['projects:read'], 'expires_in' => 'never'])
+        ->get('plainTextToken');
+
+    $admin->deleteAccount();
+
+    expect($workspace->tokens()->sole()->only('created_by_id', 'created_by_name'))->toBe(['created_by_id' => null, 'created_by_name' => null]);
+
+    getJson('/api/v1/projects', bearer($plain))->assertOk();
+});
