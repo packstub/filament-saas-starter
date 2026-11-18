@@ -162,7 +162,7 @@ The app runs without a Stripe account: the Billing page then lists the `.env` ke
    STRIPE_PRICE_BUSINESS_YEARLY=price_...
    ```
 
-   Leave a yearly price empty to sell that plan monthly only.
+   Leave a yearly price empty to sell that plan monthly only. In a copy made before yearly prices the keys were `STRIPE_PRICE_PRO` and `STRIPE_PRICE_BUSINESS`; they are still read as the monthly prices, but rename them.
 
 3. Forward Stripe's webhooks to your machine with the [Stripe CLI](https://docs.stripe.com/stripe-cli), and copy the signing secret it prints into `STRIPE_WEBHOOK_SECRET`:
 

@@ -6,6 +6,8 @@ All notable changes to `packstub/filament-saas-starter` are documented in this f
 
 ## 1.0.0
 
+**Upgrading:** from a copy made before monthly and yearly prices, rename `STRIPE_PRICE_PRO` and `STRIPE_PRICE_BUSINESS` in `.env` to `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_BUSINESS_MONTHLY` (the old names are still read as the monthly prices), and run `php artisan migrate`.
+
 First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Filament 5 to start your product from, built on Filament Teams, Filament Features, Filament Account Switcher and Laravel Cashier.
 
 - Sign-up, log-in, password reset and a profile page, with e-mail verification before the panel opens

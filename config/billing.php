@@ -31,12 +31,13 @@ return [
 
     'plans' => [
         'pro' => [
-            'monthly' => ['price' => env('STRIPE_PRICE_PRO_MONTHLY'), 'amount' => '$29/mo'],
+            // STRIPE_PRICE_PRO is the key's name before monthly and yearly prices, still read.
+            'monthly' => ['price' => env('STRIPE_PRICE_PRO_MONTHLY', env('STRIPE_PRICE_PRO')), 'amount' => '$29/mo'],
             'yearly' => ['price' => env('STRIPE_PRICE_PRO_YEARLY'), 'amount' => '$290/yr'],
             'per_seat' => false,
         ],
         'business' => [
-            'monthly' => ['price' => env('STRIPE_PRICE_BUSINESS_MONTHLY'), 'amount' => '$99/mo'],
+            'monthly' => ['price' => env('STRIPE_PRICE_BUSINESS_MONTHLY', env('STRIPE_PRICE_BUSINESS')), 'amount' => '$99/mo'],
             'yearly' => ['price' => env('STRIPE_PRICE_BUSINESS_YEARLY'), 'amount' => '$990/yr'],
             'per_seat' => false,
         ],

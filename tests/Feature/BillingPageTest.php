@@ -529,3 +529,47 @@ it('shows on the dashboard what the workspace has used of its plan', function ()
         ->assertSee('Business')
         ->assertDontSee(' of ');
 });
+
+it('still reads the price keys of a copy made before yearly prices', function () {
+    $config = fn (array $env): array => (function () use ($env) {
+        foreach ($env as $key => $value) {
+            putenv("{$key}={$value}");
+            $_ENV[$key] = $_SERVER[$key] = $value;
+        }
+
+        try {
+            return require config_path('billing.php');
+        } finally {
+            foreach (array_keys($env) as $key) {
+                putenv($key);
+                unset($_ENV[$key], $_SERVER[$key]);
+            }
+        }
+    })();
+
+    // phpunit.xml sets the new keys; without them, the old ones count.
+    $before = ['STRIPE_PRICE_PRO_MONTHLY' => $_ENV['STRIPE_PRICE_PRO_MONTHLY'] ?? null, 'STRIPE_PRICE_BUSINESS_MONTHLY' => $_ENV['STRIPE_PRICE_BUSINESS_MONTHLY'] ?? null];
+    foreach (array_keys($before) as $key) {
+        putenv($key);
+        unset($_ENV[$key], $_SERVER[$key]);
+    }
+
+    try {
+        $billing = $config(['STRIPE_PRICE_PRO' => 'price_old_pro', 'STRIPE_PRICE_BUSINESS' => 'price_old_business']);
+
+        expect($billing['plans']['pro']['monthly']['price'])->toBe('price_old_pro')
+            ->and($billing['plans']['business']['monthly']['price'])->toBe('price_old_business');
+
+        // The new name wins when both are set.
+        $billing = $config(['STRIPE_PRICE_PRO' => 'price_old_pro', 'STRIPE_PRICE_PRO_MONTHLY' => 'price_new_pro']);
+
+        expect($billing['plans']['pro']['monthly']['price'])->toBe('price_new_pro');
+    } finally {
+        foreach ($before as $key => $value) {
+            if ($value !== null) {
+                putenv("{$key}={$value}");
+                $_ENV[$key] = $_SERVER[$key] = $value;
+            }
+        }
+    }
+});
