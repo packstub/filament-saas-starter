@@ -143,6 +143,7 @@ it('puts a drifted quantity right when the next subscription webhook arrives', f
     subscribeToPro(1);
 
     expect($stripe->params['POST /v1/subscriptions/sub_test']['quantity'])->toBe(3)
+        ->and(array_count_values($stripe->requests)['POST /v1/subscriptions/sub_test'])->toBe(1)
         ->and($this->workspace->currentSubscription()->quantity)->toBe(3);
 });
 
@@ -177,4 +178,23 @@ it('moves between a flat and a per-seat plan with the right quantity', function 
         ->assertNotified("You're on the Business plan");
 
     expect($stripe->params['POST /v1/subscriptions/sub_test']['items'][0])->toMatchArray(['price' => 'price_business', 'quantity' => 1]);
+});
+
+it('moves from a flat plan to a per-seat one with a seat for every member', function () {
+    config()->set('billing.plans.business.per_seat', false);
+    memberOf($this->workspace, 'member');
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_business'))->assertOk();
+
+    $stripe = fakeStripe([
+        'POST /v1/subscriptions/sub_test' => stripeSubscription('price_pro', extra: ['quantity' => 2]),
+        'GET /v1/subscriptions/sub_test' => stripeSubscription('price_pro', extra: ['quantity' => 2]),
+    ]);
+
+    inWorkspace($this->workspace->fresh(), $this->owner);
+
+    livewire(Billing::class)
+        ->callAction(TestAction::make('changePlan')->arguments(['plan' => 'pro', 'interval' => 'monthly']))
+        ->assertNotified("You're on the Pro plan");
+
+    expect($stripe->params['POST /v1/subscriptions/sub_test']['items'][0])->toMatchArray(['price' => 'price_pro', 'quantity' => 2]);
 });

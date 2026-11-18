@@ -61,7 +61,9 @@ it('exports everything a workspace holds, and nothing of another', function () {
     Project::factory()->count(3)->for($workspace)->create();
     postJson('/stripe/webhook', stripeSubscriptionEvent('created', $workspace, 'price_pro_yearly'))->assertOk();
 
-    Project::factory()->for(workspace())->create(['name' => 'Not theirs']);
+    $other = workspace();
+    $stranger = Teams::ownersOf($other)->first();
+    Project::factory()->for($other)->create(['name' => 'Not theirs']);
 
     $export = exported(DataExport::download(DataExport::forWorkspace($workspace->fresh()), 'acme.json'));
 
@@ -71,6 +73,7 @@ it('exports everything a workspace holds, and nothing of another', function () {
         ->and($export['subscriptions'][0])->toMatchArray(['status' => 'active', 'price' => 'price_pro_yearly'])
         ->and($export['feature_overrides'][0])->toMatchArray(['feature' => 'projects'])
         ->and(collect($export['activity'])->pluck('description'))->toContain('Invited nina@example.com as Member')
+        ->and(collect($export['activity'])->pluck('description'))->not->toContain("{$stranger->name} joined as Owner")
         ->and($export['projects'])->toHaveCount(3)
         ->and(collect($export['projects'])->pluck('name'))->not->toContain('Not theirs')
         ->and($export['projects'][0])->toHaveKeys(['id', 'name', 'status'])->not->toHaveKey('workspace_id');
