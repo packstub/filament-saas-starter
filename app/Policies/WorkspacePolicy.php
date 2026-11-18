@@ -14,4 +14,12 @@ class WorkspacePolicy
     {
         return $user->canManageTeam($workspace);
     }
+
+    /**
+     * Deleting the workspace, with everything in it, is for its owners only.
+     */
+    public function delete(User $user, Workspace $workspace): bool
+    {
+        return $user->ownsTeam($workspace);
+    }
 }

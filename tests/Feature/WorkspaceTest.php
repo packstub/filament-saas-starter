@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Workspace;
 use Filament\Facades\Filament;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Str;
 use Laravel\Cashier\Subscription;
 use Laravel\Cashier\SubscriptionItem;
@@ -13,6 +14,7 @@ use Packstub\Features\Facades\Features;
 use Packstub\Features\Models\FeatureOverride;
 use Packstub\Teams\Facades\Teams;
 use Stripe\Exception\ApiErrorException;
+use Stripe\Exception\InvalidRequestException;
 
 use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
@@ -209,4 +211,95 @@ it('deletes a workspace without asking Stripe when there is no Stripe secret', f
     $workspace->delete();
 
     expect(Workspace::query()->whereKey($workspace->id)->exists())->toBeFalse();
+});
+
+it('lets an owner delete the workspace after typing its name', function () {
+    $workspace = workspace('pro');
+    Project::factory()->count(2)->for($workspace)->create();
+    $other = workspace();
+    $owner = Teams::ownersOf($workspace)->first();
+    Teams::addMember($other, $owner, 'member');
+
+    inWorkspace($workspace, $owner);
+
+    livewire(EditWorkspace::class)
+        ->assertSee('Delete workspace')
+        ->callAction('delete', ['name' => 'Not the name'])
+        ->assertHasActionErrors(['name' => 'in']);
+
+    expect(Workspace::query()->whereKey($workspace->id)->exists())->toBeTrue();
+
+    livewire(EditWorkspace::class)
+        ->callAction('delete', ['name' => $workspace->name])
+        ->assertHasNoActionErrors()
+        ->assertNotified('Workspace deleted')
+        ->assertRedirect('/app');
+
+    expect(Workspace::query()->whereKey($workspace->id)->exists())->toBeFalse()
+        ->and(Project::query()->count())->toBe(0);
+
+    // They land in the workspace they still have.
+    get('/app')->assertRedirect("/app/{$other->slug}");
+});
+
+it('keeps Delete workspace from admins', function () {
+    $workspace = workspace();
+
+    // Members cannot open the settings page at all.
+    inWorkspace($workspace, memberOf($workspace, 'admin'));
+
+    livewire(EditWorkspace::class)
+        ->assertDontSee('Delete workspace')
+        ->assertActionHidden('delete')
+        ->call('mountAction', 'delete', ['name' => $workspace->name]);
+
+    expect(Workspace::query()->whereKey($workspace->id)->exists())->toBeTrue();
+});
+
+it('refuses Delete workspace to an owner who lost the role while the page was open', function () {
+    $workspace = workspace();
+    $owner = Teams::ownersOf($workspace)->first();
+    $other = memberOf($workspace, 'owner');
+
+    inWorkspace($workspace, $owner);
+
+    $page = livewire(EditWorkspace::class)->assertActionVisible('delete');
+
+    Teams::changeRole($workspace, $owner, 'admin');
+
+    // Asked for by the browser all the same, the action is gone and nothing is deleted.
+    $page->call('mountAction', 'delete', ['name' => $workspace->name])
+        ->call('callMountedAction')
+        ->assertNoRedirect();
+
+    expect(Workspace::query()->whereKey($workspace->id)->exists())->toBeTrue()
+        ->and(Teams::isMember($workspace, $other))->toBeTrue();
+});
+
+it('cancels the subscription before deleting, and keeps the workspace when Stripe refuses', function () {
+    Exceptions::fake();
+    $workspace = workspace('free');
+    $workspace->forceFill(['stripe_id' => 'cus_test'])->save();
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $workspace, 'price_pro'))->assertOk();
+
+    fakeStripe(['DELETE /v1/subscriptions/sub_test' => ['error' => ['message' => 'Stripe is having a moment.']]]);
+
+    inWorkspace($workspace->fresh());
+
+    livewire(EditWorkspace::class)
+        ->callAction('delete', ['name' => $workspace->name])
+        ->assertNotified('The subscription could not be cancelled, so the workspace was kept')
+        ->assertNoRedirect();
+
+    expect(Workspace::query()->whereKey($workspace->id)->exists())->toBeTrue();
+    Exceptions::assertReported(fn (InvalidRequestException $exception): bool => $exception->getMessage() === 'Stripe is having a moment.');
+
+    $stripe = fakeStripe(['DELETE /v1/subscriptions/sub_test' => ['id' => 'sub_test', 'object' => 'subscription', 'status' => 'canceled']]);
+
+    livewire(EditWorkspace::class)
+        ->callAction('delete', ['name' => $workspace->name])
+        ->assertRedirect('/app');
+
+    expect($stripe->requests)->toBe(['DELETE /v1/subscriptions/sub_test'])
+        ->and(Workspace::query()->whereKey($workspace->id)->exists())->toBeFalse();
 });

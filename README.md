@@ -90,6 +90,7 @@ A workspace is the tenant: the `App\Models\Workspace` model, with its slug in th
 - `Workspace::named()` creates a workspace from a name: at most 60 characters, with a unique slug of at most 50, the suffix of a repeated name included.
 - A name that matches a page of the panel gets a suffix too: "New" becomes `new-x7k2`, because `/app/new` is the **New workspace** page. `Workspace::reservedSlugs()` reads those words from the panel's routes, so a page or plugin you add later is covered.
 - **Workspace settings** is `EditWorkspace.php` next to it, open to owners and admins through `app/Policies/WorkspacePolicy.php`.
+- **Delete workspace**, at the bottom of Workspace settings, is for owners only (`WorkspacePolicy::delete()`) and asks for the workspace's name. It runs `$workspace->delete()`: the Stripe subscription is cancelled first, then the projects, members, invitations, subscription rows and overrides go in one transaction. If Stripe refuses, nothing is deleted and the owner is told. Afterwards the panel opens another of their workspaces, or the **New workspace** page.
 - `User::getDefaultTenant()` picks the workspace a person lands in after signing in.
 
 ### Accounts and security
@@ -179,7 +180,7 @@ How a payment becomes a plan:
 - While Stripe retries a failed payment (`past_due`), the workspace keeps its plan. The Billing page then shows "Your last payment did not go through" with **Manage billing**. It does not offer a new checkout while that subscription is still running.
 - A switch that needs the card confirmed (3D Secure) continues on Cashier's payment page. So does a first payment left unfinished at Checkout: the Billing page shows "Your payment is not finished yet" with **Complete payment**.
 - **Manage billing** opens Stripe's customer portal.
-- Deleting a `Workspace` cancels its Stripe subscription first (the `deleting` hook on the model), so nothing keeps billing, then removes its projects, subscription rows and feature overrides. The kit has no button that deletes a workspace; add one where it suits your product.
+- Deleting a `Workspace` cancels its Stripe subscription first (the `deleting` hook on the model), so nothing keeps billing, then removes its projects, subscription rows and feature overrides. Owners do it from [Workspace settings](#workspaces).
 - A subscription on a price that `config/billing.php` does not list (a price added in the Stripe dashboard, say) leaves the plan as it is and writes a warning to the log.
 
 #### Per-seat pricing
@@ -246,7 +247,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `HomePageTest`: the home page links to sign-up and log-in.
 - `SignUpTest`: signing up creates a workspace with the person as owner, the panel opens after e-mail verification, long names, a second workspace, guests and other people's workspaces stay closed.
 - `AuthenticationTest`: the password rules, signing in with and without an authenticator app, two-factor authentication required for the admin panel.
-- `WorkspaceTest`: reserved slugs, workspace settings by role, what deleting a workspace removes.
+- `WorkspaceTest`: reserved slugs, workspace settings by role, deleting a workspace from its settings (owners only, the typed name, Stripe first) and what that removes.
 - `InvitationTest`: inviting from the Members page, signing up through an invitation, accepting with an existing account, an unverified account that claims an invited address, expired invitations, the seat limit.
 - `ProjectLimitTest`: projects stay in their workspace, creating stops at the plan's limit and resumes on a bigger plan, a smaller plan keeps what is there.
 - `ProjectAccessTest`: what each role may do with a project, other workspaces' projects stay out of reach by URL and by action, and the list runs the same number of queries however long it is.
