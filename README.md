@@ -351,7 +351,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `ApiTokenTest`: the API stays inside the token's workspace (lists, by id, creating), validation, the plan's project limit, plans without API access, abilities, missing, wrong, revoked and expired tokens, no browser sessions, the rate limit per token; the API tokens page by role, creating a token shown once, revoking, other workspaces' tokens, the upgrade on the Free plan, deleting a workspace.
 - `RevenueMetricsTest`: MRR from monthly, yearly and per-seat prices, what is left out (trials, ended, unknown prices), churn (trials that never paid, cancellations not over yet, the base at the start of the window), plans, sign-ups per day, plan changes, the cache, the dashboard for admins only, no calls to Stripe.
 - `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables, the Activity of every workspace.
-- `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping (invitations, overrides, the audit log) is scheduled.
+- `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping (invitations, overrides, the audit log, expired API tokens) is scheduled.
 
 `tests/Unit/ArchTest.php` holds the architecture tests: Pest's `php`, `security` and `laravel` presets and a few rules of the kit's own.
 

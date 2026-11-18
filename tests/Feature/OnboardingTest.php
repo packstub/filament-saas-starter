@@ -4,8 +4,8 @@ use App\Filament\App\Widgets\GettingStarted;
 use App\Models\Project;
 use App\Models\User;
 use Packstub\Teams\Facades\Teams;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
-use function Pest\Laravel\actingAs;
 use function Pest\Laravel\get;
 use function Pest\Livewire\livewire;
 
@@ -112,15 +112,12 @@ it('shows on the dashboard of a new workspace', function () {
     get("/app/{$workspace->slug}")->assertOk()->assertSeeLivewire(GettingStarted::class);
 });
 
-it('cannot be dismissed by a member', function () {
+it('refuses a dismissal from a member in dismiss() itself', function () {
     $workspace = workspace();
-    $member = memberOf($workspace, 'member');
-    inWorkspace($workspace);
-    // Opened by an owner, then sent by someone who may not.
-    $widget = livewire(GettingStarted::class);
-    actingAs($member);
+    inWorkspace($workspace, memberOf($workspace, 'member'));
 
-    $widget->call('dismiss')->assertForbidden();
-
-    expect($workspace->fresh()->onboarding_dismissed_at)->toBeNull();
+    // Called directly, without Livewire, whose hydration would already refuse the widget
+    // to a member (canView()): this checks dismiss()'s own guard.
+    expect(fn () => (new GettingStarted)->dismiss())->toThrow(HttpException::class)
+        ->and($workspace->fresh()->onboarding_dismissed_at)->toBeNull();
 });

@@ -287,3 +287,17 @@ it('finds the user whatever case their address was typed in', function () {
     expect(User::count())->toBe(1)
         ->and($user->socialAccounts()->count())->toBe(1);
 });
+
+it('starts a new session on signing in, so an ID planted before cannot be reused', function () {
+    $user = User::factory()->create();
+    $user->socialAccounts()->create(['provider' => 'github', 'provider_id' => '42']);
+    providerReturns('github', '42', $user->email);
+
+    $this->startSession();
+    $before = session()->getId();
+
+    get('/auth/github/callback');
+
+    assertAuthenticatedAs($user);
+    expect(session()->getId())->not->toBe($before);
+});

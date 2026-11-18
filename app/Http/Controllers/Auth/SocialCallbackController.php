@@ -134,8 +134,8 @@ class SocialCallbackController
             return $this->refuse('This account uses two-factor authentication. Sign in with your password and your code.');
         }
 
+        // login() gives the session a new ID, so one planted before the sign-in is worthless (tested).
         Filament::auth()->login($user);
-        session()->regenerate();
 
         return redirect()->intended(Filament::getPanel('app')->getUrl());
     }
