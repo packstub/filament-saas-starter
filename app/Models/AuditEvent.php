@@ -48,14 +48,15 @@ class AuditEvent extends Model
 
     /**
      * Write an entry for the workspace. The actor is whoever is signed in
-     * (none for a webhook or a command); during a support login the admin
+     * (none for a webhook, a command or an API token); during a support login the admin
      * behind it is kept too.
      *
      * @param  array<string, mixed>  $properties
      */
     public static function record(Workspace $workspace, AuditEventType $event, array $properties = []): self
     {
-        $actor = auth()->user();
+        // A person, never the Workspace an API token authenticates as (`$request->user()` on /api).
+        $actor = auth()->user() instanceof User ? auth()->user() : null;
         $impersonator = self::impersonator();
 
         return static::create([

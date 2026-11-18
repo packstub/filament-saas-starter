@@ -252,8 +252,12 @@ The amounts people see (`$29/mo`, `$290/yr`) are text next to each price in `con
 - Expired tokens are deleted a day after they expire (`sanctum:prune-expired`, scheduled daily).
 
 ```bash
-curl https://my-app.test/api/v1/projects -H "Authorization: Bearer 1|..."
-curl https://my-app.test/api/v1/projects -H "Authorization: Bearer 1|..." -d name="Website relaunch"
+curl https://my-app.test/api/v1/projects \
+  -H "Authorization: Bearer 1|..." -H "Accept: application/json"
+
+curl https://my-app.test/api/v1/projects \
+  -H "Authorization: Bearer 1|..." -H "Accept: application/json" \
+  -H "Content-Type: application/json" -d '{"name": "Website relaunch"}'
 ```
 
 The `personal_access_tokens` table is central, like billing: a request names no workspace until its token has been read.

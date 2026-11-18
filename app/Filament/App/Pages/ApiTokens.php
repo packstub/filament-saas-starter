@@ -19,6 +19,7 @@ use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
+use Livewire\Attributes\Locked;
 use Packstub\AccountSwitcher\Facades\AccountSwitcher;
 use Packstub\Features\Facades\Features;
 use UnitEnum;
@@ -49,7 +50,8 @@ class ApiTokens extends Page implements HasTable
 
     protected string $view = 'filament.app.pages.api-tokens';
 
-    /** The token just created, shown once and then forgotten. */
+    /** The token just created, shown once and then forgotten. Set by the server only. */
+    #[Locked]
     public ?string $plainTextToken = null;
 
     public static function canAccess(): bool

@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\User;
 use App\Models\Workspace;
 use Filament\Actions\Testing\TestAction;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Packstub\Features\Facades\Features;
 use Packstub\Teams\Facades\Teams;
@@ -323,4 +324,21 @@ it('takes a former manager\'s name out of the revocation entry when they delete 
 
     expect(AuditEvent::where('event', AuditEventType::ApiTokenRevoked)->sole()->description())
         ->not->toContain($admin->name);
+});
+
+it('never lets the browser set the token the page shows', function () {
+    $workspace = workspace('pro');
+    inWorkspace($workspace);
+
+    expect(fn () => livewire(ApiTokens::class)->set('plainTextToken', 'something'))->toThrow(Exception::class);
+});
+
+it('never records the workspace an API token signs in as as the person who did something', function () {
+    $workspace = workspace('pro');
+    Auth::shouldReceive('user')->andReturn($workspace);
+
+    $entry = AuditEvent::record($workspace, AuditEventType::PlanChanged, ['from' => 'Free', 'to' => 'Pro']);
+
+    expect($entry->actor_id)->toBeNull()
+        ->and($entry->actorLabel())->toBe('System');
 });
