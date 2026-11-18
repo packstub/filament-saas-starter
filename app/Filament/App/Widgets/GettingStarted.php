@@ -54,7 +54,7 @@ class GettingStarted extends Widget
                 'key' => 'invite',
                 'title' => 'Invite a teammate',
                 'description' => 'Work together: invite people by e-mail or share a link.',
-                'done' => Teams::membersOf($workspace)->count() > 1 || Teams::invitationsOf($workspace)->exists(),
+                'done' => Teams::membersOf($workspace)->count() > 1 || Teams::invitationsOf($workspace)->pending()->exists(),
                 'url' => Members::getUrl(tenant: $workspace),
                 'action' => 'Invite',
             ],

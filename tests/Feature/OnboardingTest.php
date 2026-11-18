@@ -121,3 +121,11 @@ it('refuses a dismissal from a member in dismiss() itself', function () {
     expect(fn () => (new GettingStarted)->dismiss())->toThrow(HttpException::class)
         ->and($workspace->fresh()->onboarding_dismissed_at)->toBeNull();
 });
+
+it('does not count an invitation that expired as inviting a teammate', function () {
+    $workspace = workspace();
+    Teams::invite($workspace, 'nina@example.com', send: false);
+    $this->travel(8)->days();
+
+    expect(stepsDone($workspace, Teams::ownersOf($workspace)->first())['invite'])->toBeFalse();
+});
