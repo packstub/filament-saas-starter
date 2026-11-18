@@ -20,6 +20,7 @@ Each recipe has the same parts: what you get, what you need, install, the plugin
 | [Themes with Nitpick](nitpick.md) | Designed themes and an Appearance page; owners set one for the workspace | `packstub/filament-nitpick` | stable |
 | [Session Replay](session-replay.md) | Nothing they see: your team watches their sessions from `/admin`, next to support logins | `packstub/filament-session-replay` | stable |
 | [Workflows with Flow](flow.md) | Automations per workspace (triggers, actions, approvals), workflows as a plan limit | `packstub/filament-flow` | stable |
+| [Forms with Form Builder](form-builder.md) | Forms per workspace, hosted or embedded, with submissions; forms as a plan limit | `packstub/filament-form-builder` | stable |
 | [A Projects board with Kanban](kanban.md) | Projects as cards by status, moved with drag and drop | `packstub/filament-kanban` | beta (`^1.0@beta`) |
 
 ## Coming
