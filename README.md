@@ -257,13 +257,14 @@ Read more in the [Filament Account Switcher docs](https://packstub.dev/docs/fila
 
 ### The Projects pattern
 
-Projects are the example to copy for your own models. Six files make a resource belong to a workspace and count against a plan:
+Projects are the example to copy for your own models. Seven files make a resource belong to a workspace and count against a plan:
 
 - `database/migrations/workspace/` holds the migrations of the tables a workspace owns. A table there has a ULID key and an indexed `workspace_id` without a database foreign key; the folder's README says why.
 - `app/Models/Project.php` has a `workspace()` relationship. Filament uses it to scope every query in the panel and to fill in the workspace on create.
 - `app/Enums/ProjectStatus.php` is the `status` column as a backed enum. It carries its own label and colour (`HasLabel`, `HasColor`), so the select in the form and the badge in the table need no extra code.
 - `app/Policies/ProjectPolicy.php` decides who may do what from the member's role, and allows creating only while the plan has room. It asks `User::canInWorkspace()`, which looks the role up once per request however many rows the table shows, and again as soon as a membership or a role changes.
-- `app/Filament/App/Resources/Projects/Pages/ManageProjects.php` shows "3 of 50 projects on the Pro plan", and swaps **New project** for **Upgrade for more projects** at the limit. It checks the limit once more while saving, under a lock per workspace.
+- `app/Filament/App/Resources/Projects/Pages/ManageProjects.php` shows "3 of 50 projects on the Pro plan", and swaps **New project** for **Upgrade for more projects** at the limit.
+- `app/Actions/CreateProject.php` creates a project, checking the limit once more under a lock per workspace, so two people saving at the same moment cannot pass it. Everything that makes a project goes through it.
 - `app/Support/Plans.php` counts the workspace's projects for the `projects` limit.
 
 For a new model:

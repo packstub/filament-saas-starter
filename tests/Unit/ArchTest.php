@@ -24,8 +24,8 @@ arch('policies are plain classes named after their model')
     ->toBeClasses()
     ->toHaveSuffix('Policy');
 
-arch('support classes are final')
-    ->expect(['App\Support', 'App\Billing'])
+arch('support classes and actions are final')
+    ->expect(['App\Support', 'App\Billing', 'App\Actions'])
     ->toBeFinal();
 
 arch('the app reads its settings from config files, never from the environment')
