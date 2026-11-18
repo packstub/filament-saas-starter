@@ -14,6 +14,7 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Arr;
+use LogicException;
 use Packstub\AccountSwitcher\Facades\AccountSwitcher;
 use Stripe\Exception\ApiErrorException;
 
@@ -94,6 +95,14 @@ class EditProfile extends BaseEditProfile
 
                 try {
                     $this->getUser()->deleteAccount();
+                } catch (LogicException) {
+                    // A workspace became theirs alone to own while the dialog was open.
+                    Notification::make()
+                        ->danger()
+                        ->title('Hand over or delete the workspaces you are the only owner of first')
+                        ->send();
+
+                    $action->halt();
                 } catch (ApiErrorException $exception) {
                     report($exception);
 

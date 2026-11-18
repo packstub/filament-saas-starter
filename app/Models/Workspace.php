@@ -78,6 +78,12 @@ class Workspace extends Model
     /**
      * All or nothing: the workspace's row and everything the `deleting` hook
      * removes go in one transaction, wherever delete() is called from.
+     *
+     * The Stripe cancellation happens inside it, so the rows stay locked for
+     * that call, and a later failure rolls back the rows but not the
+     * cancellation. That case puts itself right: Stripe then sends
+     * `customer.subscription.deleted`, and the webhook moves the workspace
+     * that is still here to the default plan.
      */
     public function delete(): ?bool
     {
