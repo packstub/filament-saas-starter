@@ -13,6 +13,12 @@ Four things in the kit keep each recipe short:
 
 Each recipe has the same parts: what you get, what you need, install, the plugin line, plan limits where they fit, where its tables live, what happens when a workspace or an account is deleted, a test to copy, a database per workspace later, and how to remove it.
 
+## Recipes
+
+| Recipe | What your customers get | Package | Status |
+| --- | --- | --- | --- |
+| [Themes with Nitpick](nitpick.md) | Designed themes and an Appearance page; owners set one for the workspace | `packstub/filament-nitpick` | stable |
+
 ## Coming
 
 - **Table Views** (`packstub/filament-table-views`): saved views as tabs above the Projects table, per person or shared with the workspace. The recipe comes once it is on Packagist.
