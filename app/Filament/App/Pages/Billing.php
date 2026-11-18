@@ -11,6 +11,7 @@ use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Icons\Heroicon;
+use Laravel\Cashier\Cashier;
 use Laravel\Cashier\Exceptions\IncompletePayment;
 use Packstub\Features\Facades\Features;
 use Packstub\Features\Support\Plan;
@@ -219,6 +220,40 @@ class Billing extends Page
     }
 
     /**
+     * For a subscription Stripe paused after a trial without a card: once a
+     * card is on file (under "Manage billing"), Stripe resumes it and bills
+     * from today. Without a card Stripe refuses, and the page says so.
+     */
+    public function resumeAction(): Action
+    {
+        return Action::make('resume')
+            ->label('Resume subscription')
+            ->icon(Heroicon::OutlinedPlay)
+            ->authorize(fn (): bool => static::canAccess())
+            ->action(function () {
+                $subscription = $this->workspace()->currentSubscription();
+
+                if (! $this->isConfigured() || ! $this->isPaused()) {
+                    return null;
+                }
+
+                try {
+                    $stripeSubscription = Cashier::stripe()->subscriptions->resume($subscription->stripe_id, ['billing_cycle_anchor' => 'now']);
+                } catch (ApiErrorException $exception) {
+                    return $this->stripeFailed($exception);
+                }
+
+                // The webhook does the same a moment later; this saves the wait.
+                $subscription->forceFill(['stripe_status' => $stripeSubscription->status])->save();
+                $this->workspace()->syncPlanFromSubscription();
+
+                Notification::make()->success()->title("You're on the ".Features::planLabel().' plan')->send();
+
+                return null;
+            });
+    }
+
+    /**
      * The button on each plan card for a workspace without a subscription:
      * off to Stripe Checkout. Called with the plan's key.
      */
@@ -330,7 +365,17 @@ class Billing extends Page
      */
     public function canSwitchPlans(): bool
     {
-        return (bool) $this->workspace()->currentSubscription()?->valid();
+        // Cashier counts a paused subscription as valid; it is not in good standing.
+        return (bool) $this->workspace()->currentSubscription()?->valid() && ! $this->isPaused();
+    }
+
+    /**
+     * Stripe paused the subscription: its trial ended without a payment
+     * method. The workspace is back on the default plan until it resumes.
+     */
+    public function isPaused(): bool
+    {
+        return $this->workspace()->currentSubscription()?->stripe_status === 'paused';
     }
 
     /**

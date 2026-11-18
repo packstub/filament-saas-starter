@@ -46,6 +46,17 @@
 
             {{ $this->completePaymentAction }}
         </x-filament::section>
+    @elseif ($this->isConfigured() && $this->isPaused())
+        <x-filament::section icon="heroicon-o-pause-circle" icon-color="warning" heading="Your trial ended without a payment method">
+            <x-slot name="description">
+                Add a card under "Manage billing", then resume your subscription. Until then the workspace is on the free plan.
+            </x-slot>
+
+            <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+                {{ $this->manageAction }}
+                {{ $this->resumeAction }}
+            </div>
+        </x-filament::section>
     @elseif ($this->isConfigured() && $this->needsPayment())
         <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning" heading="Your last payment did not go through">
             <x-slot name="description">

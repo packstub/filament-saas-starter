@@ -62,6 +62,7 @@ it('refuses every action to someone who lost their role while the page was open'
     'changePlan' => ['changePlan', ['plan' => 'business']],
     'manage' => ['manage', []],
     'completePayment' => ['completePayment', []],
+    'resume' => ['resume', []],
 ]);
 
 it('explains how to add Stripe keys when there are none', function () {
@@ -374,6 +375,51 @@ it('offers the portal, and neither a checkout nor a switch, while a payment is p
     expect($stripe->requests)->toBe([])
         ->and($this->workspace->subscriptions()->count())->toBe(1)
         ->and($this->workspace->fresh()->plan)->toBe('pro');
+});
+
+it('offers the portal and Resume, and no switch, for a subscription Stripe paused after its trial', function () {
+    $stripe = fakeStripe();
+
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro', 'trialing', ['trial_end' => now()->addDay()->getTimestamp()]))->assertOk();
+    postJson('/stripe/webhook', stripeSubscriptionEvent('updated', $this->workspace, 'price_pro', 'paused', ['trial_end' => now()->subDay()->getTimestamp()]))->assertOk();
+
+    expect($this->workspace->fresh()->plan)->toBe('free');
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->assertSee('Your trial ended without a payment method')
+        ->assertSee('Resume subscription')
+        ->assertDontSee('Choose ')
+        ->assertDontSee('Switch to ')
+        ->callAction(TestAction::make('changePlan')->arguments(['plan' => 'business', 'interval' => 'monthly']))
+        ->assertNoRedirect();
+
+    expect($stripe->requests)->toBe([]);
+});
+
+it('resumes a paused subscription once Stripe has a card, and says so when it has none', function () {
+    postJson('/stripe/webhook', stripeSubscriptionEvent('created', $this->workspace, 'price_pro', 'paused'))->assertOk();
+
+    fakeStripe(['POST /v1/subscriptions/sub_test/resume' => ['error' => ['message' => 'This customer has no attached payment source.']]]);
+
+    inWorkspace($this->workspace->fresh());
+
+    livewire(Billing::class)
+        ->callAction('resume')
+        ->assertNotified('Stripe could not complete that');
+
+    expect($this->workspace->fresh()->plan)->toBe('free');
+
+    $stripe = fakeStripe(['POST /v1/subscriptions/sub_test/resume' => stripeSubscription('price_pro')]);
+
+    livewire(Billing::class)
+        ->callAction('resume')
+        ->assertNotified("You're on the Pro plan");
+
+    expect($stripe->params['POST /v1/subscriptions/sub_test/resume']['billing_cycle_anchor'])->toBe('now')
+        ->and($this->workspace->fresh()->plan)->toBe('pro')
+        ->and($this->workspace->currentSubscription()->stripe_status)->toBe('active');
 });
 
 it('sends an unfinished first payment to the payment page, and offers no second checkout', function () {
