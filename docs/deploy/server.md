@@ -114,7 +114,9 @@ One cron entry (Forge: **Scheduler**, Ploi: **Cron jobs**):
 
 ## 6. Files
 
-Files on the `public` disk live in `storage/app/public`, served through the `public/storage` link that `storage:link` creates. On one server, back that folder up with the database. On several servers, or to keep the disk small, use S3 or an S3-compatible bucket (R2, DigitalOcean Spaces, MinIO): `composer require league/flysystem-aws-s3-v3 "^3.0"`, set the `AWS_*` variables and `UPLOADS_DISK=s3`.
+Files on the `public` disk live in `storage/app/public`, served through the `public/storage` link that `storage:link` creates. On one server, back that folder up with the database. On several servers, or to keep the disk small, use S3 or an S3-compatible bucket (R2, DigitalOcean Spaces, MinIO): `composer require league/flysystem-aws-s3-v3 "^3.0"`, set the `AWS_*` variables and `UPLOADS_DISK=s3`. The logos and profile pictures are shown by their plain URL, so the files must be publicly readable: the kit stores them with `public` visibility, and a bucket with ACLs disabled (the default for new AWS buckets) needs a bucket policy that allows `s3:GetObject` on `workspaces/*` and `users/*` instead.
+
+With several servers, the default disk (`FILESYSTEM_DISK`) must be shared too: Livewire keeps an upload there between choosing the file and saving the form, and the load balancer can send those two requests to different servers. Point `FILESYSTEM_DISK` at the bucket, or only Livewire's uploads with `LIVEWIRE_TEMPORARY_FILE_UPLOAD_DISK=s3` (read by Livewire's own config).
 
 ## 7. HTTPS and proxies
 

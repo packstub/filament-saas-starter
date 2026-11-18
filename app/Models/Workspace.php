@@ -71,17 +71,22 @@ class Workspace extends Model implements HasAvatar
     protected static function booted(): void
     {
         // A logo is one of the workspace's own files: a path saved here never points elsewhere.
-        static::saving(function (Workspace $workspace): void {
+        // On updates: a new record has no folder of its own yet (its id comes with the insert).
+        static::updating(function (Workspace $workspace): void {
             if ($workspace->isDirty('logo_path') && filled($workspace->logo_path)
                 && ! Uploads::isInside($workspace->logo_path, Uploads::workspaceDirectory($workspace))) {
                 throw new InvalidArgumentException('A workspace logo must be stored in the workspace\'s own folder.');
             }
         });
 
-        // The logo it replaced, or removed, goes from the disk.
+        // The logo it replaced, or removed, goes from the disk once the save is committed.
         static::updated(function (Workspace $workspace): void {
             if ($workspace->wasChanged('logo_path')) {
-                Uploads::delete($workspace->getOriginal('logo_path'), Uploads::workspaceDirectory($workspace));
+                $replaced = $workspace->getOriginal('logo_path');
+                $directory = Uploads::workspaceDirectory($workspace);
+
+                // After the commit: a save that rolls back still points at the old file.
+                DB::afterCommit(fn () => Uploads::delete($replaced, $directory));
             }
         });
 

@@ -17,16 +17,17 @@ return [
     | Every file sits under its owner's folder (App\Support\Uploads), which
     | is removed when the workspace or the account is deleted.
     |
-    | `visibility` is passed to the disk with each file; null lets Filament
-    | choose (public on the `public` disk, private elsewhere). A bucket that
-    | decides visibility for itself, like Cloudflare R2 behind Laravel Cloud,
-    | may refuse a per-file setting.
+    | `visibility` is set on each file after it is stored. These files are
+    | public by design (their plain URL is used in the menus and e-mails), so
+    | it is `public` on every disk; a bucket that refuses per-file settings
+    | (S3 with ACLs disabled, Cloudflare R2) keeps the file and its own
+    | setting, so make that bucket publicly readable.
     |
     */
 
     'disk' => env('UPLOADS_DISK', 'public'),
 
-    'visibility' => env('UPLOADS_VISIBILITY'),
+    'visibility' => env('UPLOADS_VISIBILITY', 'public'),
 
     // In kilobytes.
     'max_size' => (int) env('UPLOADS_MAX_SIZE', 1024),

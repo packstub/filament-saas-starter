@@ -45,6 +45,8 @@ Go through it before the first real customer signs up, and again after a big cha
 ## Files
 
 - [ ] Uploaded files live somewhere that survives a deploy: an S3-compatible bucket (always on Laravel Cloud), or `storage/app/public` on a single server that is backed up.
+- [ ] With more than one replica or server, the default disk is a shared bucket, and a logo uploaded and saved several times in a row is saved every time.
+- [ ] A logo's URL opens in a private browser window (the bucket serves the files publicly).
 - [ ] `php artisan storage:link` has run on a server with local files (`public/storage` exists).
 
 ## Data and backups

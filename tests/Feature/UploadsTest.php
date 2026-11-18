@@ -1,11 +1,14 @@
 <?php
 
+use App\Events\AccountDeleting;
 use App\Filament\App\Pages\Auth\EditProfile;
 use App\Filament\App\Pages\Tenancy\EditWorkspace;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Support\DataExport;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Storage;
 use Packstub\Teams\Facades\Teams;
 
@@ -181,4 +184,46 @@ it('lists the logo and the profile picture in the data exports', function () {
 
     expect(DataExport::forWorkspace($workspace->fresh())['workspace']['logo'])->toBe(Storage::disk('public')->url($workspace->fresh()->logo_path))
         ->and(DataExport::forUser($owner)['account']['avatar'])->toBeNull();
+});
+
+it('stores uploads as public files, since their plain URL is shown', function () {
+    $workspace = workspace();
+    uploadLogo($workspace);
+
+    expect(config('uploads.visibility'))->toBe('public')
+        ->and(Storage::disk('public')->getVisibility($workspace->fresh()->logo_path))->toBe('public');
+});
+
+it('keeps the replaced logo when the save rolls back', function () {
+    $workspace = workspace();
+    uploadLogo($workspace);
+    $old = $workspace->fresh()->logo_path;
+    Storage::disk('public')->put("workspaces/{$workspace->id}/logo/new.png", 'png');
+
+    expect(fn () => DB::transaction(function () use ($workspace): void {
+        $workspace->fresh()->update(['logo_path' => "workspaces/{$workspace->id}/logo/new.png"]);
+
+        throw new RuntimeException('The database went away.');
+    }))->toThrow(RuntimeException::class);
+
+    expect($workspace->fresh()->logo_path)->toBe($old)
+        ->and(Storage::disk('public')->exists($old))->toBeTrue();
+});
+
+it('lets a new workspace or account be created with a picture already set', function () {
+    $workspace = Workspace::query()->create(['name' => 'Seeded', 'slug' => 'seeded', 'logo_path' => 'seed/logo.png']);
+    $user = User::factory()->create(['avatar_path' => 'seed/avatar.png']);
+
+    expect($workspace->logo_path)->toBe('seed/logo.png')
+        ->and($user->avatar_path)->toBe('seed/avatar.png');
+});
+
+it('keeps the files of an account whose deletion rolled back', function () {
+    $user = User::factory()->create();
+    Storage::disk('public')->put("users/{$user->id}/avatar/me.png", 'png');
+
+    Event::listen(AccountDeleting::class, fn () => throw new RuntimeException('The database went away.'));
+
+    expect(fn () => $user->deleteAccount())->toThrow(RuntimeException::class)
+        ->and(Storage::disk('public')->exists("users/{$user->id}/avatar/me.png"))->toBeTrue();
 });

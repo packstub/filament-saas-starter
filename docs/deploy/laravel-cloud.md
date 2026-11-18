@@ -66,6 +66,8 @@ On the environment's canvas:
 4. **Scheduler**: switch on **Scheduler** on the App cluster. Cloud runs `schedule:run` every minute. The kit's tasks are daily clean-ups that are safe to run twice, so they need no `onOneServer()` when the App cluster has several replicas; a task of your own that must run once does.
 5. **Bucket**: a **public** bucket with the disk name `public`, for workspace logos and profile pictures (`UPLOADS_DISK=public`, the default). Cloud wires the disk into Laravel; do not set `visibility: 'public'` in `config/filesystems.php`, the bucket decides. Files only the app should hand out go in a second, **private** bucket, made the default disk, and are served through `Storage::temporaryUrl()`.
 
+   With more than one replica, or autoscaling, make a bucket the environment's **default disk** too (Cloud then sets `FILESYSTEM_DISK`): Livewire keeps an upload on the default disk between choosing the file and saving the form, and those two requests can reach different replicas. On the local disk the second one finds nothing and the logo is not saved.
+
 Redeploy after attaching anything.
 
 ## 4. Environment variables

@@ -61,17 +61,22 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     protected static function booted(): void
     {
         // A profile picture is one of the person's own files: a path saved here never points elsewhere.
-        static::saving(function (User $user): void {
+        // On updates: a new record has no folder of its own yet (its id comes with the insert).
+        static::updating(function (User $user): void {
             if ($user->isDirty('avatar_path') && filled($user->avatar_path)
                 && ! Uploads::isInside($user->avatar_path, Uploads::userDirectory($user))) {
                 throw new InvalidArgumentException('A profile picture must be stored in the person\'s own folder.');
             }
         });
 
-        // The picture it replaced, or removed, goes from the disk.
+        // The picture it replaced, or removed, goes from the disk once the save is committed.
         static::updated(function (User $user): void {
             if ($user->wasChanged('avatar_path')) {
-                Uploads::delete($user->getOriginal('avatar_path'), Uploads::userDirectory($user));
+                $replaced = $user->getOriginal('avatar_path');
+                $directory = Uploads::userDirectory($user);
+
+                // After the commit: a save that rolls back still points at the old file.
+                DB::afterCommit(fn () => Uploads::delete($replaced, $directory));
             }
         });
     }
