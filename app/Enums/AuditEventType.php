@@ -20,6 +20,8 @@ enum AuditEventType: string implements HasColor, HasIcon, HasLabel
     case InvitationAccepted = 'invitation.accepted';
     case OwnershipTransferred = 'ownership.transferred';
     case PlanChanged = 'plan.changed';
+    case ApiTokenCreated = 'api_token.created';
+    case ApiTokenRevoked = 'api_token.revoked';
     case WorkspaceDeleted = 'workspace.deleted';
 
     public function getLabel(): string
@@ -32,6 +34,8 @@ enum AuditEventType: string implements HasColor, HasIcon, HasLabel
             self::InvitationAccepted => 'Invitation accepted',
             self::OwnershipTransferred => 'Ownership transferred',
             self::PlanChanged => 'Plan changed',
+            self::ApiTokenCreated => 'API token created',
+            self::ApiTokenRevoked => 'API token revoked',
             self::WorkspaceDeleted => 'Workspace deleted',
         };
     }
@@ -42,7 +46,8 @@ enum AuditEventType: string implements HasColor, HasIcon, HasLabel
             self::MemberAdded, self::InvitationAccepted => 'success',
             self::MemberRemoved, self::WorkspaceDeleted => 'danger',
             self::OwnershipTransferred, self::PlanChanged => 'warning',
-            self::RoleChanged, self::InvitationSent => 'gray',
+            self::RoleChanged, self::InvitationSent, self::ApiTokenCreated => 'gray',
+            self::ApiTokenRevoked => 'danger',
         };
     }
 
@@ -55,6 +60,7 @@ enum AuditEventType: string implements HasColor, HasIcon, HasLabel
             self::InvitationSent => Heroicon::OutlinedEnvelope,
             self::OwnershipTransferred => Heroicon::OutlinedArrowRightCircle,
             self::PlanChanged => Heroicon::OutlinedSparkles,
+            self::ApiTokenCreated, self::ApiTokenRevoked => Heroicon::OutlinedKey,
             self::WorkspaceDeleted => Heroicon::OutlinedTrash,
         };
     }

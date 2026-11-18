@@ -21,6 +21,11 @@ return [
     | one. A subscription on a price that is not listed keeps the workspace on
     | its current plan and writes a warning to the log.
     |
+    | `unit_amount` is the same price as a number, in the currency's smallest
+    | unit (cents for USD, CASHIER_CURRENCY): the admin dashboard adds these
+    | up into the monthly recurring revenue without asking Stripe. Keep both
+    | in step with the price in Stripe.
+    |
     | `per_seat` bills a plan per member: the subscription's quantity follows
     | the number of members, updated whenever someone joins or leaves. Its
     | Stripe prices are then per unit ("$9 per seat"), its `amount` should say
@@ -32,13 +37,13 @@ return [
     'plans' => [
         'pro' => [
             // STRIPE_PRICE_PRO is the key's name before monthly and yearly prices, still read.
-            'monthly' => ['price' => env('STRIPE_PRICE_PRO_MONTHLY', env('STRIPE_PRICE_PRO')), 'amount' => '$29/mo'],
-            'yearly' => ['price' => env('STRIPE_PRICE_PRO_YEARLY'), 'amount' => '$290/yr'],
+            'monthly' => ['price' => env('STRIPE_PRICE_PRO_MONTHLY', env('STRIPE_PRICE_PRO')), 'amount' => '$29/mo', 'unit_amount' => 2900],
+            'yearly' => ['price' => env('STRIPE_PRICE_PRO_YEARLY'), 'amount' => '$290/yr', 'unit_amount' => 29000],
             'per_seat' => false,
         ],
         'business' => [
-            'monthly' => ['price' => env('STRIPE_PRICE_BUSINESS_MONTHLY', env('STRIPE_PRICE_BUSINESS')), 'amount' => '$99/mo'],
-            'yearly' => ['price' => env('STRIPE_PRICE_BUSINESS_YEARLY'), 'amount' => '$990/yr'],
+            'monthly' => ['price' => env('STRIPE_PRICE_BUSINESS_MONTHLY', env('STRIPE_PRICE_BUSINESS')), 'amount' => '$99/mo', 'unit_amount' => 9900],
+            'yearly' => ['price' => env('STRIPE_PRICE_BUSINESS_YEARLY'), 'amount' => '$990/yr', 'unit_amount' => 99000],
             'per_seat' => false,
         ],
     ],

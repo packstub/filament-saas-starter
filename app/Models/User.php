@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
@@ -67,6 +68,34 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     }
 
     /**
+     * The Google and GitHub accounts this person signs in with.
+     *
+     * @return HasMany<SocialAccount, $this>
+     */
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class);
+    }
+
+    /**
+     * Whether this person can sign in with a password: someone who signed up
+     * with Google or GitHub has none until they choose one.
+     */
+    public function hasPassword(): bool
+    {
+        return filled($this->getAuthPassword());
+    }
+
+    /**
+     * How many ways this person has to sign in: a password, and each connected account.
+     * The last one can never be removed, or they would be locked out.
+     */
+    public function signInMethodCount(): int
+    {
+        return ($this->hasPassword() ? 1 : 0) + $this->socialAccounts()->count();
+    }
+
+    /**
      * hasTeamPermission(), answered once per request for each workspace and
      * permission: a table asks the policy for every row and every action.
      */
@@ -104,8 +133,10 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
      * member goes too (its Stripe subscription cancelled first, see
      * Workspace::delete()), they leave every other one, and the audit logs
      * keep what happened but no longer their name or e-mail address
-     * (AuditEvent::forget()). All or nothing, in one transaction; a
-     * subscription Stripe will not cancel stops it.
+     * (AuditEvent::forget()). Leaving each workspace revokes the API tokens
+     * they created there (App\Listeners\RevokeApiTokensOfFormerManagers).
+     * All or nothing, in one transaction; a subscription Stripe will not
+     * cancel stops it.
      */
     public function deleteAccount(): void
     {

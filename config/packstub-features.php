@@ -31,6 +31,7 @@ return [
     'features' => [
         'projects' => ['label' => 'Projects', 'type' => 'limit', 'default' => 3, 'unit' => 'projects', 'group' => 'Workspace', 'description' => 'Projects in this workspace.'],
         'seats' => ['label' => 'Seats', 'type' => 'limit', 'default' => 2, 'unit' => 'seats', 'group' => 'Workspace', 'description' => 'Members plus pending invitations.'],
+        'api_access' => ['label' => 'API access', 'type' => 'boolean', 'default' => false, 'group' => 'Workspace', 'description' => 'API tokens and the REST API at /api/v1.'],
         'priority_support' => ['label' => 'Priority support', 'type' => 'boolean', 'default' => false, 'group' => 'Support', 'description' => 'Answers within one business day.'],
     ],
 
@@ -52,8 +53,8 @@ return [
 
     'plans' => [
         'free' => ['label' => 'Free', 'description' => 'For trying things out.', 'price' => '$0', 'features' => ['projects' => 3, 'seats' => 2]],
-        'pro' => ['label' => 'Pro', 'description' => 'For a growing team.', 'features' => ['projects' => 50, 'seats' => 10]],
-        'business' => ['label' => 'Business', 'description' => 'No limits, and help when you need it.', 'features' => ['projects' => null, 'seats' => null, 'priority_support' => true]],
+        'pro' => ['label' => 'Pro', 'description' => 'For a growing team.', 'features' => ['projects' => 50, 'seats' => 10, 'api_access' => true]],
+        'business' => ['label' => 'Business', 'description' => 'No limits, and help when you need it.', 'features' => ['projects' => null, 'seats' => null, 'api_access' => true, 'priority_support' => true]],
     ],
 
     'default_plan' => env('PACKSTUB_FEATURES_DEFAULT_PLAN', 'free'),

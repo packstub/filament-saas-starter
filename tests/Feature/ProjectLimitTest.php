@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\CreateProject;
 use App\Enums\ProjectStatus;
 use App\Filament\App\Resources\Projects\Pages\ManageProjects;
 use App\Models\Project;
@@ -8,6 +9,7 @@ use Filament\Actions\Testing\TestAction;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Packstub\Features\Exceptions\FeatureLimitReached;
 use Packstub\Features\Facades\Features;
 
 use function Pest\Livewire\livewire;
@@ -208,4 +210,20 @@ it('shows no limit on a plan without one', function () {
     livewire(ManageProjects::class)
         ->assertDontSee('projects on the Business plan')
         ->assertActionVisible('create');
+});
+
+it('creates a project in the given workspace only while its plan has room, wherever it is called from', function () {
+    $workspace = workspace('free');
+    $other = workspace('free');
+
+    $project = CreateProject::in($workspace, ['name' => 'First']);
+
+    expect($project->workspace_id)->toBe($workspace->getKey())
+        ->and($other->projects()->count())->toBe(0);
+
+    CreateProject::in($workspace, ['name' => 'Second']);
+    CreateProject::in($workspace, ['name' => 'Third']);
+
+    expect(fn () => CreateProject::in($workspace, ['name' => 'Fourth']))->toThrow(FeatureLimitReached::class)
+        ->and($workspace->projects()->count())->toBe(3);
 });

@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Laravel\Cashier\Billable;
 use Laravel\Cashier\Subscription;
+use Laravel\Sanctum\HasApiTokens;
 use Packstub\Features\Concerns\HasFeatures;
 use Packstub\Features\Facades\Features;
 use Packstub\Features\Models\FeatureOverride;
@@ -33,16 +34,34 @@ class Workspace extends Model
     // The Stripe customer is the workspace, not the person who entered the card.
     use Billable;
 
+    // Its API tokens: a token belongs to the workspace, not to the person who created it.
+    use HasApiTokens;
+
     /** @use HasFactory<WorkspaceFactory> */
     use HasFactory;
 
     use HasFeatures;
     use HasTeamMembers;
 
+    /** @var array<string, mixed> */
+    protected $attributes = [
+        'onboarding_dismissed_at' => null,
+    ];
+
     public const NAME_MAX_LENGTH = 60;
 
     /** Counts the suffix that tells two workspaces of the same name apart. Short enough for a host name, should workspaces ever get subdomains. */
     public const SLUG_MAX_LENGTH = 50;
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'onboarding_dismissed_at' => 'datetime',
+        ];
+    }
 
     protected static function booted(): void
     {
@@ -66,6 +85,9 @@ class Workspace extends Model
             });
 
             FeatureOverride::query()->forScope($workspace)->delete();
+
+            // Its API tokens stop working with it.
+            $workspace->tokens()->delete();
 
             // Its audit log goes too; the entry written below stays for the back office.
             AuditEvent::query()->where('workspace_id', $workspace->getKey())->delete();

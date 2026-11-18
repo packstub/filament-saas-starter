@@ -48,14 +48,15 @@ class AuditEvent extends Model
 
     /**
      * Write an entry for the workspace. The actor is whoever is signed in
-     * (none for a webhook or a command); during a support login the admin
+     * (none for a webhook, a command or an API token); during a support login the admin
      * behind it is kept too.
      *
      * @param  array<string, mixed>  $properties
      */
     public static function record(Workspace $workspace, AuditEventType $event, array $properties = []): self
     {
-        $actor = auth()->user();
+        // A person, never the Workspace an API token authenticates as (`$request->user()` on /api).
+        $actor = auth()->user() instanceof User ? auth()->user() : null;
         $impersonator = self::impersonator();
 
         return static::create([
@@ -147,6 +148,8 @@ class AuditEvent extends Model
             AuditEventType::InvitationSent => isset($p['email']) ? "Invited {$p['email']} as {$p['role']}" : "Created an invitation link for {$p['role']}",
             AuditEventType::InvitationAccepted => "{$p['name']} accepted an invitation",
             AuditEventType::OwnershipTransferred => "Ownership moved from {$p['from']} to {$p['to']}",
+            AuditEventType::ApiTokenCreated => "Created the API token {$p['name']} (".implode(', ', $p['abilities'] ?? []).')',
+            AuditEventType::ApiTokenRevoked => "Revoked the API token {$p['name']}".(isset($p['from']) ? " ({$p['from']} no longer manages the workspace)" : ''),
             AuditEventType::PlanChanged => "Plan changed from {$p['from']} to {$p['to']}",
             AuditEventType::WorkspaceDeleted => "Deleted the workspace {$this->workspace_name}",
         };

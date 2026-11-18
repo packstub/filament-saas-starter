@@ -11,9 +11,12 @@ All notable changes to `packstub/filament-saas-starter` are documented in this f
 First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Filament 5 to start your product from, built on Filament Teams, Filament Features, Filament Account Switcher and Laravel Cashier.
 
 - Sign-up, log-in, password reset and a profile page, with e-mail verification before the panel opens
+- Sign in and sign up with Google and GitHub once their keys are set, linked only to verified addresses, with connected accounts on the Profile page
+- **Upgrading:** a project created from the template before 1.0.0 needs `users.password` made nullable before using Google and GitHub sign-up; the README shows the one-line migration
 - Two-factor authentication with an authenticator app: optional for customers, required for the admin panel
 - Password rules set in one place, longer and checked against known leaks in production
 - Workspaces as tenants: one per sign-up, as many as a person likes, everything in the panel scoped to the current one
+- A Get started checklist on a new workspace's dashboard that ticks itself off (invite, first project, plan, two-factor) and can be dismissed
 - Workspace names that match a page of the panel (New, Login, Profile…) get a slug of their own
 - Members, invitations by e-mail or link, and the roles Owner, Admin and Member, with invitation e-mails on the queue
 - Plans (Free, Pro, Business) with limits on projects and seats, a Your plan page, and overrides per workspace
@@ -31,8 +34,13 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - Delete account on the Profile page, behind the password; workspaces only that person used go with it, and audit logs keep what happened without their name or e-mail address
 - Download your data (Profile page) and Export workspace data (Workspace settings, owners), each as one JSON file
 - After Transfer ownership, Stripe's receipts and billing e-mails go to the new owner
-- A workspace audit log of members, roles, invitations, ownership, plan changes and deletion, on an Activity page for owners and admins
+- API tokens per workspace, with abilities and an expiry, created and revoked by owners and admins on an API tokens page
+- A REST API at `/api/v1` for projects, scoped to the token's workspace, with the plan's limits and a rate limit per token
+- A workspace audit log of members, roles, invitations, ownership, plan changes, API tokens and deletion, on an Activity page for owners and admins
 - Activity in the admin panel: every workspace's audit log, deleted workspaces and support logins included
+- A landing page with features, a FAQ and pricing generated from your plans (monthly and yearly, with the free trial), in light and dark mode
+- Meta and link-preview tags, a sitemap and a robots.txt that keeps staging copies out of search engines, and Terms and Privacy placeholders to replace
+- Revenue metrics on the admin dashboard: MRR, paying subscriptions, trials, churn, sign-ups and plans, without calling Stripe
 - Demo accounts with one-click logins in the local environment, never seeded in production
 - Strict Eloquent models outside production, so an N+1 query fails while you develop
 - A Pest suite with architecture tests, and GitHub Actions for PHP 8.3, 8.4 and 8.5
