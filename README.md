@@ -57,6 +57,7 @@ cp .env.example .env
 php artisan key:generate
 npm install && npm run build
 php artisan migrate --seed
+php artisan storage:link
 ```
 
 `composer setup` runs those steps in one go.
@@ -104,7 +105,7 @@ A workspace is the tenant: the `App\Models\Workspace` model, with its slug in th
 - **New workspace** in the workspace menu is `app/Filament/App/Pages/Tenancy/RegisterWorkspace.php`. A person can create as many as they like, each starting on the Free plan. If your pricing needs a limit, add it there.
 - `Workspace::named()` creates a workspace from a name: at most 60 characters, with a unique slug of at most 50, the suffix of a repeated name included.
 - A name that matches a page of the panel gets a suffix too: "New" becomes `new-x7k2`, because `/app/new` is the **New workspace** page. `Workspace::reservedSlugs()` reads those words from the panel's routes, so a page or plugin you add later is covered.
-- **Workspace settings** is `EditWorkspace.php` next to it, open to owners and admins through `app/Policies/WorkspacePolicy.php`.
+- **Workspace settings** is `EditWorkspace.php` next to it, open to owners and admins through `app/Policies/WorkspacePolicy.php`. It holds the workspace's name and its **Logo**, shown in the workspace menu and at the top of the workspace's e-mails. See [Uploaded files](#uploaded-files).
 - **Delete workspace**, at the bottom of Workspace settings, is for owners only (`WorkspacePolicy::delete()`), never during a support login, and asks for the workspace's name. It runs `$workspace->delete()`: the Stripe subscription is cancelled first, then the projects, members, invitations, subscription rows and overrides go in one transaction. If Stripe refuses, nothing is deleted and the owner is told. Afterwards the panel opens another of their workspaces, or the **New workspace** page.
 - **Get started**, on the dashboard of a new workspace (`app/Filament/App/Widgets/GettingStarted.php`), shows owners and admins four steps: invite a teammate, create a first project, choose a plan, turn on two-factor authentication. Each one is worked out from what is really there (members and invitations, projects, a subscription or a paid plan, the person's authenticator app), so it ticks itself off. The checklist goes once every step is done, or when someone clicks **Dismiss**, which hides it for the whole workspace (`workspaces.onboarding_dismissed_at`). Change the steps in `GettingStarted::steps()`.
 - `User::getDefaultTenant()` picks the workspace a person lands in after signing in.
@@ -117,7 +118,35 @@ A workspace is the tenant: the `App\Models\Workspace` model, with its slug in th
 - **Download your data**, on the **Profile** page, gives a person one JSON file with everything the app holds about them: their account, the workspaces they are in and their role, their notifications, and every support login into their account. **Export workspace data**, in Workspace settings, does the same for a workspace, for owners only (`WorkspacePolicy::export()`): members, invitations, subscriptions, overrides and projects. Both come from `app/Support/DataExport.php` and are plain GET downloads (`/exports/me`, `/exports/workspaces/{slug}`, in `app/Http/Controllers`) streamed to the browser as they are read, so a workspace with many projects never sits in memory whole. The buttons link there rather than returning the file from a Filament action, which Livewire would buffer whole. A table you add for a workspace belongs in `DataExport::forWorkspace()` too.
 - **Delete account** is at the bottom of the **Profile** page (`app/Filament/App/Pages/Auth/EditProfile.php`), behind the person's password. `User::deleteAccount()` deletes every workspace where they are the only member (cancelling its subscription first) and takes them out of the others. Someone who is the only owner of a workspace others still use is asked to hand it over under **Members** (**Transfer ownership**) or delete it first, so no workspace is left without an owner. The button is hidden during a support login. Filament Account Switcher's own log loses the support logins into a deleted account (its `account_switches` rows go with the user); the workspaces' audit logs keep what support did, under "Deleted user". A module that keeps something about a person removes it in a listener of `App\Events\AccountDeleting`, dispatched inside the same transaction.
 - **Google and GitHub sign-in** ([Laravel Socialite](https://laravel.com/docs/socialite)) turn on once their keys are in `.env`; until then no button shows. See [Signing in with Google and GitHub](#signing-in-with-google-and-github).
+- **Profile picture**: on the **Profile** page, shown in the user menu instead of the initials. See [Uploaded files](#uploaded-files).
 - **Strict models**: outside production, `Model::shouldBeStrict()` turns a lazy-loaded relation (an N+1 query), a missing attribute and a field left out of `Fillable` into an error, so you find them while developing.
+
+### Uploaded files
+
+Workspace logos and profile pictures are Filament file uploads, set up in `config/uploads.php` and `app/Support/Uploads.php`:
+
+- **Where**: the `public` disk by default (`storage/app/public`, linked into `public/` by `php artisan storage:link`, which `composer setup` runs). Set `UPLOADS_DISK=s3` and the `AWS_*` variables for an S3 or S3-compatible bucket, after `composer require league/flysystem-aws-s3-v3 "^3.0"`. Files are stored with `public` visibility (`UPLOADS_VISIBILITY`); a bucket without per-file ACLs needs a public-read policy. On Laravel Cloud, attach a public bucket named `public` ([the guide](docs/deploy/laravel-cloud.md)). With several servers or replicas the default disk must be a shared bucket too, for Livewire's temporary uploads.
+- **What**: PNG, JPEG or WebP, up to `UPLOADS_MAX_SIZE` kilobytes (1024 by default). No SVG: a picture people upload is served from your domain, and an SVG can carry scripts.
+- **Who owns it**: every file sits in its owner's folder, `workspaces/{id}/…` or `users/{id}/…`. The models refuse a path outside it (`workspaces.logo_path`, `users.avatar_path`), so nobody can point their workspace at another one's file, and a replaced logo or picture is deleted from the disk.
+- **Deleting**: `app/Listeners/DeleteWorkspaceFiles.php` and `DeleteAccountFiles.php` remove the owner's whole folder when the workspace or the account is deleted, once the deletion is committed; a deletion that fails keeps the files. A file your own code stores for a workspace goes under `Uploads::workspaceDirectory($workspace)` and is removed with it for free.
+- **Public by link**: anyone with a file's URL can open it. Keep files that must stay private on a private disk and hand them out with `Storage::temporaryUrl()`.
+
+### E-mails
+
+Every e-mail the app sends, Filament's verification and password reset included, uses one layout: `resources/views/vendor/mail/html/message.blade.php` with the `saas` theme (`html/themes/saas.css`, Laravel's default in the panel's Indigo; `markdown` in `config/mail.php`). The top shows `APP_NAME`, or the workspace's name and **Logo** when the e-mail is about a workspace; the bottom shows `SITE_COMPANY` and `SITE_CONTACT_EMAIL`. Change the colours in the theme, the wording in the views. Names people choose (a workspace's, a person's) appear in these e-mails, so `AppServiceProvider` turns on `Markdown::withSecuredEncoding()`: Markdown inside a `{{ }}` is printed as text, and a workspace called `[Verify](https://…)` never becomes a link. Keep links and other Markdown in the view, outside `{{ }}`.
+
+| E-mail | Sent to | From |
+| --- | --- | --- |
+| Invitation | The invited address | Filament Teams, with the workspace's logo (`resources/views/vendor/packstub-teams/mail/invitation.blade.php`) |
+| Payment failed | The workspace's owners, also in the bell menu | `app/Notifications/PaymentFailed.php`, when a Stripe webhook moves the subscription to past due (`app/Listeners/NotifyOwnersOfFailedPayment.php`), once per failure |
+| Workspace deleted | Everyone who was in it, and who deleted it | `app/Notifications/WorkspaceDeleted.php`, after the deletion is committed (`app/Listeners/SendWorkspaceDeletedNotice.php`) |
+| Account deleted | The deleted account's address | `app/Notifications/AccountDeleted.php`, after the deletion is committed (`app/Listeners/SendAccountDeletedNotice.php`) |
+
+Receipts and invoices come from Stripe: turn them on in Stripe's customer e-mail settings, where you can also brand them. All of these are queued, so a worker must run in production. Preview one with `php artisan tinker` and `(new App\Notifications\AccountDeleted('Ada'))->toMail(new Illuminate\Notifications\AnonymousNotifiable)->render()`, or send them to [Mailpit](https://mailpit.axllent.org) locally with `MAIL_MAILER=smtp` and `MAIL_PORT=1025`.
+
+### Languages
+
+The kit's own text lives in `lang/en` and `lang/es` (Spanish, complete, as the example), behind `__()`. Filament is translated too; the pages of the Packstub plugins (Members, Invitations, Your plan) are English-only for now, and can be translated in `lang/vendor` (see the guide). A signed-in person picks a **Language** on the **Profile** page, which their e-mails follow too; a visitor picks one in the home page's footer. The languages on offer are `locales` in `config/app.php`. [docs/translations.md](docs/translations.md) shows where each text lives and how to add a language; `TranslationsTest` fails when a key is missing in one of them.
 
 ### Signing in with Google and GitHub
 
@@ -337,6 +366,9 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 
 - `HomePageTest`: the home page links to sign-up and log-in, its pricing follows the billing config and the free trial, the meta tags, canonical and sitemap URLs on `APP_URL` whatever the request's host, the sitemap with and without the legal placeholders, robots.txt in and out of production, the Terms and Privacy placeholders and their switch.
 - `SignUpTest`: signing up creates a workspace with the person as owner, the panel opens after e-mail verification, long names, a second workspace, guests and other people's workspaces stay closed.
+- `MailTest`: the branded layout and theme on every e-mail, the workspace's name and logo on its invitation, the failed payment notice to owners only and once per failure, the deletion notices to members and to a deleted account, none after a rollback.
+- `TranslationsTest`: every key and placeholder in every language, a person's language in the panel and their e-mails, the home page's language switch.
+- `UploadsTest`: logos and profile pictures stored in their owner's folder and shown in the menus, size and type limits, a replaced file removed, never another workspace's or person's file, the folders removed when a workspace or an account is deleted (and kept when the deletion fails), the exports.
 - `DataExportTest`: what the personal and the workspace exports hold and leave out, the download routes and who may use them.
 - `AccountTest`: deleting an account with its password, what goes with it and what stays, the only owner of a shared workspace, support logins.
 - `AuthenticationTest`: the password rules, signing in with and without an authenticator app, two-factor authentication required for the admin panel.
@@ -358,11 +390,28 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `ApiTokenTest`: the API stays inside the token's workspace (lists, by id, creating), validation, the plan's project limit, plans without API access, abilities, missing, wrong, revoked and expired tokens, no browser sessions, the rate limit per token; the API tokens page by role, creating a token shown once, revoking, other workspaces' tokens, the upgrade on the Free plan, deleting a workspace.
 - `RevenueMetricsTest`: MRR from monthly, yearly and per-seat prices, what is left out (trials, ended, unknown prices), churn (trials that never paid, cancellations not over yet, the base at the start of the window), plans, sign-ups per day, plan changes, the cache, the dashboard for admins only, no calls to Stripe.
 - `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables, the Activity of every workspace.
+- `AgentGuidelinesTest`: every file, class and method that `AGENTS.md` and the guidelines in `.ai` name exists.
 - `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping (invitations, overrides, the audit log, expired API tokens) is scheduled.
 
 `tests/Unit/ArchTest.php` holds the architecture tests: Pest's `php`, `security` and `laravel` presets and a few rules of the kit's own.
 
 The webhook tests post Stripe's payloads to the app, and `fakeStripe()` in `tests/Pest.php` answers the calls the app makes to Stripe, so the suite needs no Stripe account. `.github/workflows/tests.yml` runs it on PHP 8.3, 8.4 and 8.5.
+
+### Coding agents
+
+The kit is ready for Claude Code, Cursor, Codex and the other coding agents:
+
+- `AGENTS.md` (and `CLAUDE.md`, a link to it) maps the code and lists the conventions.
+- `.ai/guidelines` explains the parts an agent is most likely to get wrong: the architecture, the rules for a workspace's tables, billing, testing, how to add a resource, a plan limit or a module, and a list of what never to do.
+- `.ai/skills/adding-a-workspace-resource` walks an agent through a new kind of record from the migration to the tests.
+
+[Laravel Boost](https://laravel.com/docs/boost) is installed as a dev dependency. Run it once and pick your agents:
+
+```bash
+php artisan boost:install
+```
+
+It adds Boost's MCP server (the database schema, read-only queries, the logs, a search of the Laravel docs for the versions you have installed), Laravel's own guidelines and skills, and copies the guidelines and skills from `.ai` into each agent's files. Your text in `AGENTS.md` stays; Boost writes inside its own `<laravel-boost-guidelines>` block. The files it generates for each agent (`.mcp.json`, `.claude/skills`, `.agents/skills`, `opencode.json`) are in `.gitignore`; commit `boost.json` if your team should share the same setup. After `composer update`, run `php artisan boost:update`. Edit the sources in `.ai`, never the copies.
 
 ## Optional modules
 
@@ -378,6 +427,15 @@ The kit leaves out what only some products need. Each of these is a short recipe
 | [An AI assistant with credits](docs/modules/ai.md) | A chat assistant per workspace, paid for by monthly AI credits from the plan (needs the next releases of the AI packages) |
 
 Four things in the kit keep the recipes short: the plugin lists in `app/Filament/Plugins.php`, the `App\Events\WorkspaceDeleting` and `App\Events\AccountDeleting` events a module cleans up in, the one-value-per-line plans in `config/packstub-features.php`, and `TableRulesTest`, which makes each module say where its tables live.
+
+## Deploying
+
+The app needs a MySQL or PostgreSQL database, a queue worker, the scheduler and a mail provider in production, and a Stripe webhook once you sell plans. The guides in [`docs/deploy`](docs/deploy) walk through each host:
+
+- [Laravel Cloud](docs/deploy/laravel-cloud.md): build and deploy commands, a managed queue, the scheduler toggle, buckets for uploads, secrets, your domain and the live Stripe webhook.
+- [Your own server](docs/deploy/server.md), with Forge, Ploi or by hand: the deploy script, a Supervisor worker (and when Horizon is worth it), the cron entry, Redis, files and backups.
+- [Environment variables](docs/deploy/environment.md): every value the app reads, and what it should be in production.
+- [Production checklist](docs/deploy/production-checklist.md): what to check before the first customer, from `APP_DEBUG` to two-factor authentication for every admin.
 
 ## Going further
 

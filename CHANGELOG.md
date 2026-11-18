@@ -35,6 +35,9 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - `WorkspaceDeleting` and `AccountDeleting` events inside the deletion's transaction, so a module's rows go with the workspace or the person without editing the models
 - Delete workspace in Workspace settings, for owners, after typing the workspace's name
 - Delete account on the Profile page, behind the password; workspaces only that person used go with it, and audit logs keep what happened without their name or e-mail address
+- Workspace logos and profile pictures, shown in the workspace and user menus, stored per workspace or person on a configurable disk (local or S3) and removed with them
+- Branded e-mails: one layout and theme for every e-mail, with the workspace's name and logo on its invitations, and notices for a failed payment, a deleted workspace and a deleted account
+- The kit's text in translation files, with a complete Spanish translation, a Language choice on the Profile page that the e-mails follow, a language switch on the home page, and a test that keeps every language complete
 - Download your data (Profile page) and Export workspace data (Workspace settings, owners), each as one JSON file
 - After Transfer ownership, Stripe's receipts and billing e-mails go to the new owner
 - API tokens per workspace, with abilities and an expiry, created and revoked by owners and admins on an API tokens page
@@ -44,6 +47,8 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - A landing page with features, a FAQ and pricing generated from your plans (monthly and yearly, with the free trial), in light and dark mode
 - Meta and link-preview tags, a sitemap and a robots.txt that keeps staging copies out of search engines, and Terms and Privacy placeholders to replace
 - Revenue metrics on the admin dashboard: MRR, paying subscriptions, trials, churn, sign-ups and plans, without calling Stripe
+- Ready for coding agents: Laravel Boost as a dev dependency, guidelines in `.ai/guidelines` (architecture, workspace tables, billing, testing, extending, what never to do), a skill for adding a workspace resource, and a test that keeps them true to the code
+- Deploy guides for Laravel Cloud and for your own server (Forge, Ploi), a reference of every environment variable, and a production checklist
 - Demo accounts with one-click logins in the local environment, never seeded in production
 - Strict Eloquent models outside production, so an N+1 query fails while you develop
 - A Pest suite with architecture tests, and GitHub Actions for PHP 8.3, 8.4 and 8.5

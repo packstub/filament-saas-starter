@@ -13,7 +13,6 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use UnitEnum;
 
 /**
  * Every workspace's audit log in one place, deleted workspaces included.
@@ -23,15 +22,39 @@ use UnitEnum;
  */
 class AuditEventResource extends Resource
 {
+    public static function getNavigationGroup(): ?string
+    {
+        return __('app.navigation.customers');
+    }
+
     protected static ?string $model = AuditEvent::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Customers';
+    public static function getModelLabel(): string
+    {
+        return __('admin.activity.model');
+    }
 
-    protected static ?string $navigationLabel = 'Activity';
+    public static function getPluralModelLabel(): string
+    {
+        return __('admin.activity.plural_model');
+    }
 
-    protected static ?string $modelLabel = 'activity entry';
+    public static function getTitleCaseModelLabel(): string
+    {
+        return __('admin.activity.title');
+    }
+
+    public static function getTitleCasePluralModelLabel(): string
+    {
+        return __('admin.activity.plural_title');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('admin.activity.navigation');
+    }
 
     protected static ?string $slug = 'activity';
 
@@ -40,33 +63,37 @@ class AuditEventResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('workspace_name')
-                    ->label('Workspace')
+                    ->label(__('admin.activity.columns.workspace'))
                     ->searchable(),
                 TextColumn::make('event')
+                    ->label(__('admin.activity.columns.event'))
                     ->badge(),
                 TextColumn::make('description')
+                    ->label(__('admin.activity.columns.description'))
                     ->state(fn (AuditEvent $record): string => $record->description())
                     ->wrap(),
                 TextColumn::make('actor_name')
-                    ->label('By')
+                    ->label(__('admin.activity.columns.by'))
                     ->state(fn (AuditEvent $record): string => $record->actorLabel())
                     ->searchable(['actor_name', 'impersonator_name']),
                 TextColumn::make('created_at')
-                    ->label('When')
+                    ->label(__('admin.activity.columns.when'))
                     ->since()
                     ->dateTimeTooltip()
                     ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('event')
+                    ->label(__('admin.activity.filters.event'))
                     ->options(AuditEventType::class),
                 // Also set by "Activity" on a row of the Workspaces table. A deleted
                 // workspace is not in the list; search for its name instead.
                 SelectFilter::make('workspace')
+                    ->label(__('admin.activity.filters.workspace'))
                     ->relationship('workspace', 'name')
                     ->searchable(),
                 Filter::make('support_logins')
-                    ->label('During a support login')
+                    ->label(__('admin.activity.filters.support_logins'))
                     ->query(fn (Builder $query): Builder => $query->whereNotNull('impersonator_id'))
                     ->toggle(),
             ])

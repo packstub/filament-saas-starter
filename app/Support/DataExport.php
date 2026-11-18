@@ -43,6 +43,7 @@ final class DataExport
                 'name' => $user->name,
                 'email' => $user->email,
                 'email_verified_at' => self::date($user->email_verified_at),
+                'avatar' => Uploads::url($user->avatar_path),
                 'two_factor_authentication' => filled($user->getAppAuthenticationSecret()),
                 'created_at' => self::date($user->created_at),
             ],
@@ -95,6 +96,7 @@ final class DataExport
                 'name' => $workspace->name,
                 'slug' => $workspace->slug,
                 'plan' => $workspace->plan,
+                'logo' => Uploads::url($workspace->logo_path),
                 'created_at' => self::date($workspace->created_at),
             ],
             'members' => Teams::membersOf($workspace)->get()->map(fn (User $member): array => [

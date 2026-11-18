@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Events\AccountDeleting;
+use App\Support\Locales;
+use App\Support\Uploads;
 use App\Support\WorkspacePermissions;
 use Database\Factories\UserFactory;
 use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthentication;
@@ -10,10 +12,12 @@ use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthenticationRecover
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
 use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
 use Filament\Models\Contracts\HasDefaultTenant;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,14 +27,15 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use InvalidArgumentException;
 use LogicException;
 use Packstub\AccountSwitcher\Concerns\HasLinkedAccounts;
 use Packstub\Teams\Concerns\HasTeamMemberships;
 use Packstub\Teams\Facades\Teams;
 
-#[Fillable(['name', 'email', 'password'])]
+#[Fillable(['name', 'email', 'password', 'avatar_path', 'locale'])]
 #[Hidden(['password', 'remember_token'])]
-class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasDefaultTenant, HasTenants, MustVerifyEmail
+class User extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery, HasAvatar, HasDefaultTenant, HasLocalePreference, HasTenants, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory;
@@ -49,7 +54,32 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     /** @var array<string, mixed> */
     protected $attributes = [
         'is_admin' => false,
+        'avatar_path' => null,
+        'locale' => null,
     ];
+
+    protected static function booted(): void
+    {
+        // A profile picture is one of the person's own files: a path saved here never points elsewhere.
+        // On updates: a new record has no folder of its own yet (its id comes with the insert).
+        static::updating(function (User $user): void {
+            if ($user->isDirty('avatar_path') && filled($user->avatar_path)
+                && ! Uploads::isInside($user->avatar_path, Uploads::userDirectory($user))) {
+                throw new InvalidArgumentException('A profile picture must be stored in the person\'s own folder.');
+            }
+        });
+
+        // The picture it replaced, or removed, goes from the disk once the save is committed.
+        static::updated(function (User $user): void {
+            if ($user->wasChanged('avatar_path')) {
+                $replaced = $user->getOriginal('avatar_path');
+                $directory = Uploads::userDirectory($user);
+
+                // After the commit: a save that rolls back still points at the old file.
+                DB::afterCommit(fn () => Uploads::delete($replaced, $directory));
+            }
+        });
+    }
 
     /**
      * @return array<string, string>
@@ -61,6 +91,24 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
             'password' => 'hashed',
             'is_admin' => 'boolean',
         ];
+    }
+
+    /**
+     * The language of the e-mails and notifications this person receives:
+     * the one chosen on their Profile page, or the app's default.
+     */
+    public function preferredLocale(): ?string
+    {
+        // A language taken out of config/app.php since they chose it falls back to the default.
+        return Locales::supports($this->locale) ? $this->locale : null;
+    }
+
+    /**
+     * The profile picture, in the user menu; Filament shows initials without one.
+     */
+    public function getFilamentAvatarUrl(): ?string
+    {
+        return Uploads::url($this->avatar_path);
     }
 
     public function canAccessPanel(Panel $panel): bool

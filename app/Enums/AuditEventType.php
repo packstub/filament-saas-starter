@@ -26,18 +26,18 @@ enum AuditEventType: string implements HasColor, HasIcon, HasLabel
 
     public function getLabel(): string
     {
-        return match ($this) {
-            self::MemberAdded => 'Member added',
-            self::MemberRemoved => 'Member removed',
-            self::RoleChanged => 'Role changed',
-            self::InvitationSent => 'Invitation sent',
-            self::InvitationAccepted => 'Invitation accepted',
-            self::OwnershipTransferred => 'Ownership transferred',
-            self::PlanChanged => 'Plan changed',
-            self::ApiTokenCreated => 'API token created',
-            self::ApiTokenRevoked => 'API token revoked',
-            self::WorkspaceDeleted => 'Workspace deleted',
-        };
+        return __('activity.events.'.match ($this) {
+            self::MemberAdded => 'member_added',
+            self::MemberRemoved => 'member_removed',
+            self::RoleChanged => 'role_changed',
+            self::InvitationSent => 'invitation_sent',
+            self::InvitationAccepted => 'invitation_accepted',
+            self::OwnershipTransferred => 'ownership_transferred',
+            self::PlanChanged => 'plan_changed',
+            self::ApiTokenCreated => 'api_token_created',
+            self::ApiTokenRevoked => 'api_token_revoked',
+            self::WorkspaceDeleted => 'workspace_deleted',
+        });
     }
 
     public function getColor(): string

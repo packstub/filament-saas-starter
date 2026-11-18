@@ -22,7 +22,6 @@ use Illuminate\Support\Carbon;
 use Livewire\Attributes\Locked;
 use Packstub\AccountSwitcher\Facades\AccountSwitcher;
 use Packstub\Features\Facades\Features;
-use UnitEnum;
 
 /**
  * The workspace's API tokens, for owners and admins: create one with a name,
@@ -36,17 +35,28 @@ use UnitEnum;
  */
 class ApiTokens extends Page implements HasTable
 {
+    public static function getNavigationGroup(): ?string
+    {
+        return __('app.navigation.workspace');
+    }
+
     use InteractsWithTable;
 
-    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedKey;
+    public static function getNavigationLabel(): string
+    {
+        return __('api_tokens.title');
+    }
 
-    protected static string|UnitEnum|null $navigationGroup = 'Workspace';
+    public function getTitle(): string
+    {
+        return __('api_tokens.title');
+    }
+
+    protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedKey;
 
     protected static ?int $navigationSort = 25;
 
     protected static ?string $slug = 'api-tokens';
-
-    protected static ?string $title = 'API tokens';
 
     protected string $view = 'filament.app.pages.api-tokens';
 
@@ -63,7 +73,7 @@ class ApiTokens extends Page implements HasTable
 
     public function getSubheading(): string
     {
-        return 'Let your scripts and integrations use the API at '.url('/api/v1').' on behalf of this workspace.';
+        return __('api_tokens.subheading', ['url' => url('/api/v1')]);
     }
 
     /**
@@ -88,32 +98,33 @@ class ApiTokens extends Page implements HasTable
     public function createAction(): Action
     {
         return Action::make('create')
-            ->label('New API token')
+            ->label(__('api_tokens.actions.create'))
             ->icon(Heroicon::OutlinedPlus)
             ->authorize(fn (): bool => $this->canCreateTokens())
             ->visible(fn (): bool => $this->canCreateTokens())
-            ->modalHeading('New API token')
-            ->modalSubmitActionLabel('Create token')
+            ->modalHeading(__('api_tokens.actions.create'))
+            ->modalSubmitActionLabel(__('api_tokens.actions.create_submit'))
             ->schema([
                 TextInput::make('name')
-                    ->helperText('What uses it: "Zapier", "Nightly import".')
+                    ->label(__('api_tokens.fields.name'))
+                    ->helperText(__('api_tokens.fields.name_help'))
                     ->required()
                     ->maxLength(100),
                 CheckboxList::make('abilities')
-                    ->label('It may')
-                    ->options(ApiToken::ABILITIES)
+                    ->label(__('api_tokens.fields.abilities'))
+                    ->options(ApiToken::abilityOptions())
                     ->default(['projects:read'])
                     ->required(),
                 Select::make('expires_in')
-                    ->label('Expires')
-                    ->options(['30' => 'In 30 days', '90' => 'In 90 days', '365' => 'In a year', 'never' => 'Never'])
+                    ->label(__('api_tokens.fields.expires'))
+                    ->options(array_combine($expiries = ['30', '90', '365', 'never'], array_map(fn (string $key): string => __("api_tokens.expires_in.{$key}"), $expiries)))
                     ->default('90')
                     ->selectablePlaceholder(false)
                     ->required(),
             ])
             ->action(function (array $data): void {
                 $workspace = $this->workspace();
-                $abilities = array_values(array_intersect(array_keys(ApiToken::ABILITIES), $data['abilities']));
+                $abilities = array_values(array_intersect(ApiToken::ABILITIES, $data['abilities']));
                 $expiresAt = $data['expires_in'] === 'never' ? null : Carbon::now()->addDays((int) $data['expires_in']);
 
                 $token = $workspace->createToken($data['name'], $abilities, $expiresAt);
@@ -129,7 +140,7 @@ class ApiTokens extends Page implements HasTable
     public function upgradeAction(): Action
     {
         return Action::make('upgrade')
-            ->label('Upgrade for API access')
+            ->label(__('api_tokens.actions.upgrade'))
             ->icon(Heroicon::OutlinedArrowUpCircle)
             ->visible(fn (): bool => ! $this->hasApiAccess() && Billing::canAccess())
             ->url(fn (): string => Billing::getUrl());
@@ -149,38 +160,39 @@ class ApiTokens extends Page implements HasTable
             ->query(fn () => $this->workspace()->tokens()->getQuery())
             ->columns([
                 TextColumn::make('name')
+                    ->label(__('api_tokens.columns.name'))
                     ->searchable(),
                 TextColumn::make('abilities')
-                    ->label('May')
-                    ->formatStateUsing(fn (string $state): string => ApiToken::ABILITIES[$state] ?? $state)
+                    ->label(__('api_tokens.columns.abilities'))
+                    ->formatStateUsing(fn (string $state): string => ApiToken::abilityLabel($state))
                     ->badge(),
                 TextColumn::make('created_by_name')
-                    ->label('Created by')
-                    ->placeholder('Someone who left'),
+                    ->label(__('api_tokens.columns.created_by'))
+                    ->placeholder(__('api_tokens.columns.created_by_empty')),
                 TextColumn::make('last_used_at')
-                    ->label('Last used')
+                    ->label(__('api_tokens.columns.last_used'))
                     ->since()
                     ->dateTimeTooltip()
-                    ->placeholder('Never'),
+                    ->placeholder(__('api_tokens.columns.never')),
                 TextColumn::make('expires_at')
-                    ->label('Expires')
+                    ->label(__('api_tokens.columns.expires'))
                     ->date()
-                    ->placeholder('Never')
+                    ->placeholder(__('api_tokens.columns.never'))
                     ->color(fn (ApiToken $record): ?string => $record->expires_at?->isPast() ? 'danger' : null),
                 TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label(__('api_tokens.columns.created'))
                     ->since()
                     ->dateTimeTooltip()
                     ->sortable(),
             ])
             ->recordActions([
                 Action::make('revoke')
-                    ->label('Revoke')
+                    ->label(__('api_tokens.actions.revoke'))
                     ->icon(Heroicon::OutlinedNoSymbol)
                     ->color('danger')
                     ->requiresConfirmation()
-                    ->modalHeading(fn (ApiToken $record): string => "Revoke {$record->name}?")
-                    ->modalDescription('Anything that uses this token stops working straight away. This cannot be undone.')
+                    ->modalHeading(fn (ApiToken $record): string => __('api_tokens.actions.revoke_heading', ['name' => $record->name]))
+                    ->modalDescription(__('api_tokens.actions.revoke_description'))
                     ->authorize(fn (): bool => static::canAccess())
                     ->action(function (ApiToken $record): void {
                         // The query is the workspace's own tokens, so a record from another workspace never gets here.
@@ -190,10 +202,10 @@ class ApiTokens extends Page implements HasTable
                     }),
             ])
             ->defaultSort('created_at', 'desc')
-            ->emptyStateHeading('No API tokens yet')
+            ->emptyStateHeading(__('api_tokens.empty.heading'))
             ->emptyStateDescription(fn (): string => $this->hasApiAccess()
-                ? 'Create one to call the API from a script or another app.'
-                : 'API access comes with a paid plan.');
+                ? __('api_tokens.empty.with_access')
+                : __('api_tokens.empty.without_access'));
     }
 
     protected function workspace(): Workspace

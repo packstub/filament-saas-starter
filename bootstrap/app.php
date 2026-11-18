@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -15,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Each person's language (their profile, or the one picked on the home page), for every page.
+        $middleware->web(append: [SetLocale::class]);
+
         // Stripe's webhooks carry a signature instead of a CSRF token.
         $middleware->preventRequestForgery(except: ['stripe/*']);
 

@@ -12,7 +12,6 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Packstub\AccountSwitcher\Filament\Actions\ImpersonateAction;
-use UnitEnum;
 
 /**
  * Everyone with an account, and the way into a customer's panel: "Impersonate"
@@ -20,11 +19,34 @@ use UnitEnum;
  */
 class UserResource extends Resource
 {
+    public static function getNavigationGroup(): ?string
+    {
+        return __('app.navigation.customers');
+    }
+
     protected static ?string $model = User::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedUsers;
 
-    protected static string|UnitEnum|null $navigationGroup = 'Customers';
+    public static function getModelLabel(): string
+    {
+        return __('admin.users.model');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('admin.users.plural_model');
+    }
+
+    public static function getTitleCaseModelLabel(): string
+    {
+        return __('admin.users.title');
+    }
+
+    public static function getTitleCasePluralModelLabel(): string
+    {
+        return __('admin.users.plural_title');
+    }
 
     /**
      * @return Builder<User>
@@ -40,17 +62,19 @@ class UserResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')
+                    ->label(__('admin.users.columns.name'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('email')
+                    ->label(__('admin.users.columns.email'))
                     ->searchable(),
                 TextColumn::make('joined_teams_count')
-                    ->label('Workspaces'),
+                    ->label(__('admin.users.columns.workspaces')),
                 IconColumn::make('is_admin')
-                    ->label('Admin')
+                    ->label(__('admin.users.columns.admin'))
                     ->boolean(),
                 TextColumn::make('created_at')
-                    ->label('Signed up')
+                    ->label(__('admin.users.columns.signed_up'))
                     ->date()
                     ->sortable(),
             ])

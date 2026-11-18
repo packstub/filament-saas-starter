@@ -32,6 +32,8 @@ class UserFactory extends Factory
             'remember_token' => Str::random(10),
             'app_authentication_secret' => null,
             'app_authentication_recovery_codes' => null,
+            'avatar_path' => null,
+            'locale' => null,
         ];
     }
 

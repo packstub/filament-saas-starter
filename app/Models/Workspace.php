@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Billing\StripePrices;
 use App\Enums\AuditEventType;
 use App\Events\WorkspaceDeleting;
+use App\Support\Uploads;
 use Database\Factories\WorkspaceFactory;
 use Filament\Facades\Filament;
+use Filament\Models\Contracts\HasAvatar;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -16,6 +18,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Laravel\Cashier\Billable;
 use Laravel\Cashier\Subscription;
 use Laravel\Sanctum\HasApiTokens;
@@ -29,8 +32,8 @@ use Stripe\Exception\InvalidRequestException;
 /**
  * The tenant: what people sign up for, invite others into and pay for.
  */
-#[Fillable(['name', 'slug'])]
-class Workspace extends Model
+#[Fillable(['name', 'slug', 'logo_path'])]
+class Workspace extends Model implements HasAvatar
 {
     // The Stripe customer is the workspace, not the person who entered the card.
     use Billable;
@@ -47,6 +50,7 @@ class Workspace extends Model
     /** @var array<string, mixed> */
     protected $attributes = [
         'onboarding_dismissed_at' => null,
+        'logo_path' => null,
     ];
 
     public const NAME_MAX_LENGTH = 60;
@@ -66,6 +70,26 @@ class Workspace extends Model
 
     protected static function booted(): void
     {
+        // A logo is one of the workspace's own files: a path saved here never points elsewhere.
+        // On updates: a new record has no folder of its own yet (its id comes with the insert).
+        static::updating(function (Workspace $workspace): void {
+            if ($workspace->isDirty('logo_path') && filled($workspace->logo_path)
+                && ! Uploads::isInside($workspace->logo_path, Uploads::workspaceDirectory($workspace))) {
+                throw new InvalidArgumentException('A workspace logo must be stored in the workspace\'s own folder.');
+            }
+        });
+
+        // The logo it replaced, or removed, goes from the disk once the save is committed.
+        static::updated(function (Workspace $workspace): void {
+            if ($workspace->wasChanged('logo_path')) {
+                $replaced = $workspace->getOriginal('logo_path');
+                $directory = Uploads::workspaceDirectory($workspace);
+
+                // After the commit: a save that rolls back still points at the old file.
+                DB::afterCommit(fn () => Uploads::delete($replaced, $directory));
+            }
+        });
+
         // The tables a workspace owns have no foreign key to this one
         // (database/migrations/workspace), and neither have Cashier's or the
         // feature overrides, so their rows are removed here. Members and
@@ -131,6 +155,15 @@ class Workspace extends Model
                 throw $exception;
             }
         }
+    }
+
+    /**
+     * The logo, in the tenant menu and the workspace's e-mails; Filament
+     * shows the workspace's initials without one.
+     */
+    public function getFilamentAvatarUrl(): ?string
+    {
+        return Uploads::url($this->logo_path);
     }
 
     /**
