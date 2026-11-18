@@ -7,8 +7,9 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 /**
  * A workspace's API token (Laravel Sanctum's personal access token, with
- * the workspace as its owner). It keeps who created it, by id and by name
- * as they were, so it still reads well after that person has left.
+ * the workspace as its owner). It keeps who created it, by id and by name;
+ * their tokens are revoked once they no longer manage the workspace
+ * (App\Listeners\RevokeApiTokensOfFormerManagers).
  *
  * Tokens are central, like billing: a request names no workspace, the
  * token does, so the table has to be readable before any workspace is

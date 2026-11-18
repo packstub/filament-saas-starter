@@ -133,8 +133,10 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
      * member goes too (its Stripe subscription cancelled first, see
      * Workspace::delete()), they leave every other one, and the audit logs
      * keep what happened but no longer their name or e-mail address
-     * (AuditEvent::forget()), nor on the API tokens they created. All or nothing, in one transaction; a
-     * subscription Stripe will not cancel stops it.
+     * (AuditEvent::forget()). Leaving each workspace revokes the API tokens
+     * they created there (App\Listeners\RevokeApiTokensOfFormerManagers).
+     * All or nothing, in one transaction; a subscription Stripe will not
+     * cancel stops it.
      */
     public function deleteAccount(): void
     {
@@ -151,9 +153,6 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
 
             // Last, after the entries the removals above wrote.
             AuditEvent::forget($this);
-
-            // The workspace keeps the API tokens they created, without their name.
-            ApiToken::query()->where('created_by_id', $this->getKey())->update(['created_by_id' => null, 'created_by_name' => null]);
 
             $this->notifications()->delete();
             $this->delete();

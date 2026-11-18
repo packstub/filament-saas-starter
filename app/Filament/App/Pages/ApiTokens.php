@@ -26,8 +26,9 @@ use UnitEnum;
 /**
  * The workspace's API tokens, for owners and admins: create one with a name,
  * what it may do and when it expires, and revoke it. A token belongs to the
- * workspace (it keeps working after the person who created it leaves) and
- * is shown once, right after it is created; only its hash is stored.
+ * workspace and is shown once, right after it is created; only its hash is
+ * stored. It is revoked when its creator no longer manages the workspace
+ * (App\Listeners\RevokeApiTokensOfFormerManagers).
  *
  * The API itself is routes/api.php. Tokens need the plan's `api_access`
  * feature; without it the page offers an upgrade instead.

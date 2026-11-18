@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\AuditEventType;
-use App\Filament\Admin\Resources\Users\Pages\ManageUsers;
 use App\Filament\App\Pages\ApiTokens;
 use App\Models\ApiToken;
 use App\Models\AuditEvent;
@@ -11,6 +10,7 @@ use App\Models\Workspace;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Support\Facades\RateLimiter;
 use Packstub\Features\Facades\Features;
+use Packstub\Teams\Facades\Teams;
 
 use function Pest\Laravel\getJson;
 use function Pest\Laravel\postJson;
@@ -275,34 +275,52 @@ it('takes a workspace\'s tokens with it when it is deleted', function () {
     getJson('/api/v1/projects', bearer($token))->assertUnauthorized();
 });
 
-it('keeps working after its creator deletes their account, without their name', function () {
+it('stops working once its creator no longer manages the workspace', function (string $how) {
     $workspace = workspace('pro');
     $admin = memberOf($workspace, 'admin');
+    $others = $workspace->createToken('Created by someone else', ['projects:read'])->plainTextToken;
     inWorkspace($workspace, $admin);
 
     $plain = livewire(ApiTokens::class)
         ->callAction('create', ['name' => 'Zapier', 'abilities' => ['projects:read'], 'expires_in' => 'never'])
         ->get('plainTextToken');
 
-    $admin->deleteAccount();
+    match ($how) {
+        'removed' => Teams::removeMember($workspace, $admin),
+        'made a member' => Teams::changeRole($workspace, $admin, 'member'),
+        'account deleted' => $admin->deleteAccount(),
+    };
 
-    expect($workspace->tokens()->sole()->only('created_by_id', 'created_by_name'))->toBe(['created_by_id' => null, 'created_by_name' => null]);
+    expect($workspace->tokens()->pluck('name')->all())->toBe(['Created by someone else'])
+        ->and(AuditEvent::where('event', AuditEventType::ApiTokenRevoked)->sole()->description())
+        // A deleted account's name is taken out of the log (AuditEvent::forget()).
+        ->toBe('Revoked the API token Zapier ('.($how === 'account deleted' ? AuditEvent::DELETED_USER : $admin->name).' no longer manages the workspace)');
 
-    getJson('/api/v1/projects', bearer($plain))->assertOk();
-});
+    getJson('/api/v1/projects', bearer($plain))->assertUnauthorized();
+    getJson('/api/v1/projects', bearer($others))->assertOk();
+})->with(['removed', 'made a member', 'account deleted']);
 
-it('never creates a token during a support login, which may still revoke one', function () {
+it('keeps working when its creator stays a manager', function () {
     $owner = User::factory()->create();
     $workspace = workspace('pro', $owner);
-    $existing = $workspace->createToken('Leaked script')->accessToken;
+    $plain = $workspace->createToken('Zapier', ['projects:read']);
+    $plain->accessToken->forceFill(['created_by_id' => $owner->getKey()])->save();
 
-    inAdminPanel(admin());
-    livewire(ManageUsers::class)->callAction(TestAction::make('impersonate')->table($owner));
-    inWorkspace($workspace, $owner);
+    // The former owner stays on as an admin.
+    Teams::transferOwnership($workspace, $owner, memberOf($workspace, 'admin'));
 
-    livewire(ApiTokens::class)
-        ->assertActionHidden('create')
-        ->callAction(TestAction::make('revoke')->table($existing));
+    expect($workspace->tokens()->count())->toBe(1);
 
-    expect($workspace->tokens()->count())->toBe(0);
+    getJson('/api/v1/projects', bearer($plain->plainTextToken))->assertOk();
+});
+
+it('takes a former manager\'s name out of the revocation entry when they delete their account', function () {
+    $workspace = workspace('pro');
+    $admin = memberOf($workspace, 'admin');
+    $workspace->createToken('Zapier')->accessToken->forceFill(['created_by_id' => $admin->getKey()])->save();
+
+    $admin->deleteAccount();
+
+    expect(AuditEvent::where('event', AuditEventType::ApiTokenRevoked)->sole()->description())
+        ->not->toContain($admin->name);
 });
