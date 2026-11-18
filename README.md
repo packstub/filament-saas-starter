@@ -115,7 +115,7 @@ A workspace is the tenant: the `App\Models\Workspace` model, with its slug in th
 - **Two-factor authentication** is Filament's own, with an authenticator app and recovery codes. Customers switch it on from their **Profile** page. The admin panel requires it: an admin without it is sent to set it up before any page opens. In the local environment `/admin` skips that step, so the demo admin gets in with one click.
 - The secret and the recovery codes are stored encrypted in two columns of the `users` table.
 - **Download your data**, on the **Profile** page, gives a person one JSON file with everything the app holds about them: their account, the workspaces they are in and their role, their notifications, and every support login into their account. **Export workspace data**, in Workspace settings, does the same for a workspace, for owners only (`WorkspacePolicy::export()`): members, invitations, subscriptions, overrides and projects. Both come from `app/Support/DataExport.php` and are plain GET downloads (`/exports/me`, `/exports/workspaces/{slug}`, in `app/Http/Controllers`) streamed to the browser as they are read, so a workspace with many projects never sits in memory whole. The buttons link there rather than returning the file from a Filament action, which Livewire would buffer whole. A table you add for a workspace belongs in `DataExport::forWorkspace()` too.
-- **Delete account** is at the bottom of the **Profile** page (`app/Filament/App/Pages/Auth/EditProfile.php`), behind the person's password. `User::deleteAccount()` deletes every workspace where they are the only member (cancelling its subscription first) and takes them out of the others. Someone who is the only owner of a workspace others still use is asked to hand it over under **Members** (**Transfer ownership**) or delete it first, so no workspace is left without an owner. The button is hidden during a support login. Filament Account Switcher's own log loses the support logins into a deleted account (its `account_switches` rows go with the user); the workspaces' audit logs keep what support did, under "Deleted user".
+- **Delete account** is at the bottom of the **Profile** page (`app/Filament/App/Pages/Auth/EditProfile.php`), behind the person's password. `User::deleteAccount()` deletes every workspace where they are the only member (cancelling its subscription first) and takes them out of the others. Someone who is the only owner of a workspace others still use is asked to hand it over under **Members** (**Transfer ownership**) or delete it first, so no workspace is left without an owner. The button is hidden during a support login. Filament Account Switcher's own log loses the support logins into a deleted account (its `account_switches` rows go with the user); the workspaces' audit logs keep what support did, under "Deleted user". A module that keeps something about a person removes it in a listener of `App\Events\AccountDeleting`, dispatched inside the same transaction.
 - **Google and GitHub sign-in** ([Laravel Socialite](https://laravel.com/docs/socialite)) turn on once their keys are in `.env`; until then no button shows. See [Signing in with Google and GitHub](#signing-in-with-google-and-github).
 - **Strict models**: outside production, `Model::shouldBeStrict()` turns a lazy-loaded relation (an N+1 query), a missing attribute and a field left out of `Fillable` into an error, so you find them while developing.
 
@@ -320,7 +320,7 @@ For a new model:
 
 1. Put its migration in `database/migrations/workspace`, with a ULID key and an indexed `workspace_id`.
 2. Add `HasUlids` and the `workspace()` relationship to the model.
-3. Delete its rows in `Workspace`'s `deleting` hook, and add them to `DataExport::forWorkspace()`.
+3. Delete its rows in `Workspace`'s `deleting` hook, and add them to `DataExport::forWorkspace()`. Code you would rather keep out of the model (a module's tables, say) listens to `App\Events\WorkspaceDeleting` instead: the hook dispatches it inside the same transaction, while the workspace's projects are still there.
 4. Write the policy.
 5. Create the resource in `app/Filament/App/Resources`.
 6. Add a limit if the plan should cap it.
@@ -341,6 +341,9 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `AccountTest`: deleting an account with its password, what goes with it and what stays, the only owner of a shared workspace, support logins.
 - `AuthenticationTest`: the password rules, signing in with and without an authenticator app, two-factor authentication required for the admin panel.
 - `WorkspaceTest`: reserved slugs, workspace settings by role, deleting a workspace from its settings (owners only, the typed name, Stripe first) and what that removes.
+- `TableRulesTest`: every table is either central (listed, with the reason) or a workspace's own one with its migration in `database/migrations/workspace`, a ULID key, an indexed `workspace_id` and no foreign key to a central table; and a deleted workspace leaves no row behind in any table (`rowsLeftOf()` in `tests/Pest.php`).
+- `PluginsTest`: the optional plugins listed in `app/Filament/Plugins.php` are registered on their panel.
+- `DeletionEventsTest`: the events a module listens to when a workspace or an account is deleted, inside the transaction, and never on the queue.
 - `OwnershipTest`: transferring ownership from the Members page, owners only, what the new owner may do, the Stripe billing contact following.
 - `InvitationTest`: inviting from the Members page, signing up through an invitation, accepting with an existing account, an unverified account that claims an invited address, expired invitations, the seat limit.
 - `ProjectLimitTest`: projects stay in their workspace, creating stops at the plan's limit and resumes on a bigger plan, a smaller plan keeps what is there.
@@ -360,6 +363,21 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 `tests/Unit/ArchTest.php` holds the architecture tests: Pest's `php`, `security` and `laravel` presets and a few rules of the kit's own.
 
 The webhook tests post Stripe's payloads to the app, and `fakeStripe()` in `tests/Pest.php` answers the calls the app makes to Stripe, so the suite needs no Stripe account. `.github/workflows/tests.yml` runs it on PHP 8.3, 8.4 and 8.5.
+
+## Optional modules
+
+The kit leaves out what only some products need. Each of these is a short recipe in [`docs/modules`](docs/modules/README.md): the `composer require` line, one line in `app/Filament/Plugins.php`, the migrations, a plan limit where one fits, what happens when a workspace or an account is deleted, a test to copy, and how to take it out again.
+
+| Recipe | What it adds |
+| --- | --- |
+| [Themes with Nitpick](docs/modules/nitpick.md) | Designed themes and an Appearance page in the app panel; owners set one for their workspace |
+| [Session Replay](docs/modules/session-replay.md) | Recordings of customer sessions, watched from `/admin` next to support logins |
+| [Workflows with Flow](docs/modules/flow.md) | Automations per workspace, with the number of workflows as a plan limit |
+| [Forms with Form Builder](docs/modules/form-builder.md) | Forms per workspace, hosted or embedded, with the number of forms as a plan limit |
+| [A Projects board with Kanban](docs/modules/kanban.md) | The Projects resource as a board by status (a beta package) |
+| [An AI assistant with credits](docs/modules/ai.md) | A chat assistant per workspace, paid for by monthly AI credits from the plan (needs the next releases of the AI packages) |
+
+Four things in the kit keep the recipes short: the plugin lists in `app/Filament/Plugins.php`, the `App\Events\WorkspaceDeleting` and `App\Events\AccountDeleting` events a module cleans up in, the one-value-per-line plans in `config/packstub-features.php`, and `TableRulesTest`, which makes each module say where its tables live.
 
 ## Going further
 

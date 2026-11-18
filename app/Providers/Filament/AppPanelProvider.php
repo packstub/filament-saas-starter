@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\App\Pages\Auth\EditProfile;
 use App\Filament\App\Pages\Tenancy\EditWorkspace;
 use App\Filament\App\Pages\Tenancy\RegisterWorkspace;
+use App\Filament\Plugins;
 use App\Models\User;
 use App\Models\Workspace;
 use App\Support\Plans;
@@ -99,6 +100,8 @@ class AppPanelProvider extends PanelProvider
                 Plans::plugin()
                     ->navigationGroup('Workspace'),
                 SupportLogins::plugin(),
-            ]);
+            ])
+            // Optional modules (docs/modules), listed in app/Filament/Plugins.php.
+            ->plugins(Plugins::app());
     }
 }

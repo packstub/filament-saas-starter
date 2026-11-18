@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Plugins;
 use App\Support\Plans;
 use App\Support\SupportLogins;
 use Filament\Auth\MultiFactor\App\AppAuthentication;
@@ -68,6 +69,8 @@ class AdminPanelProvider extends PanelProvider
                     ->adminPages()
                     ->navigationGroup('Plans'),
                 SupportLogins::plugin(),
-            ]);
+            ])
+            // Optional modules (docs/modules), listed in app/Filament/Plugins.php.
+            ->plugins(Plugins::admin());
     }
 }

@@ -1,0 +1,100 @@
+name: Modules
+
+# Applies every recipe in docs/modules to a fresh copy of the kit and runs the
+# suite (scripts/verify-module.sh), so a recipe that a plugin release broke is
+# found on Monday, not by a customer. Not part of the required "Tests passed"
+# check: a plugin's release must never block a pull request here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      module:
+        description: "One recipe (its file name without .md); empty for all"
+        required: false
+        default: ""
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  list:
+    name: List the recipes
+    # Only in the kit's own repository: a project made with "Use this template" copies this file too.
+    if: github.repository == 'packstub/filament-saas-starter'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      modules: ${{ steps.list.outputs.modules }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: List them
+        id: list
+        env:
+          ONLY: ${{ inputs.module }}
+        run: |
+          # Every recipe but the index, and those waiting for a release (<!-- verify: skip … -->).
+          modules=$(for recipe in docs/modules/*.md; do
+            name=$(basename "$recipe" .md)
+            [ "$name" = README ] && continue
+            [ -n "$ONLY" ] && [ "$name" != "$ONLY" ] && continue
+            grep -q '<!-- verify: skip' "$recipe" && [ -z "$ONLY" ] && continue
+            echo "$name"
+          done | jq -R . | jq -cs .)
+          echo "Recipes: $modules"
+          if [ "$modules" = "[]" ]; then
+            echo "No recipe to verify${ONLY:+ named $ONLY}." >&2
+            exit 1
+          fi
+          echo "modules=$modules" >> "$GITHUB_OUTPUT"
+
+  verify:
+    name: Recipe ${{ matrix.module }}
+    needs: list
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJSON(needs.list.outputs.modules) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The kit's floor: a module that needs a newer PHP must say so in its recipe.
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: "8.3"
+          extensions: pdo_sqlite
+          coverage: none
+
+      - name: Get Composer cache directory
+        id: composer-cache
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Composer downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: composer-modules-${{ runner.os }}-${{ matrix.module }}-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            composer-modules-${{ runner.os }}-${{ matrix.module }}-
+            composer-modules-${{ runner.os }}-
+
+      - name: Verify the recipe
+        run: scripts/verify-module.sh "${{ matrix.module }}"

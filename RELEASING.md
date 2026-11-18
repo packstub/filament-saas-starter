@@ -34,7 +34,7 @@ composer update packstub/filament-teams
 - The installer rewrites `php-version: 'x.y'` in a starter kit's workflows. `tests.yml` uses a matrix, so it stays as it is.
 - `post-autoload-dump` runs `filament:upgrade`, which publishes Filament's assets into `public/` (ignored by Git).
 
-`.gitattributes` keeps the maintainer files out of the archive Composer installs: this file, `CHANGELOG.md`, `SECURITY.md`, `.claude`, and from `.github` the contributing guide, the issue templates, the funding file, `release.yml` and the `add-to-project`, `dependabot-auto-merge` and `github-release` workflows. A project made with `laravel new` or `composer create-project` starts without them and keeps `tests.yml` and `dependabot.yml`. **Use this template** on GitHub copies every file. A new maintainer-only file gets its own `export-ignore` line.
+`.gitattributes` keeps the maintainer files out of the archive Composer installs: this file, `CHANGELOG.md`, `SECURITY.md`, `.claude`, `scripts/`, and from `.github` the contributing guide, the issue templates, the funding file, `release.yml` and the `add-to-project`, `dependabot-auto-merge`, `github-release` and `modules` workflows. A project made with `laravel new` or `composer create-project` starts without them and keeps `tests.yml` and `dependabot.yml`. **Use this template** on GitHub copies every file. A new maintainer-only file gets its own `export-ignore` line.
 
 To try a fresh project from a local commit, export it and create a project from the export:
 
@@ -43,6 +43,14 @@ mkdir ../kit-export && git archive HEAD | tar -x -C ../kit-export
 cd .. && composer create-project packstub/filament-saas-starter my-app \
     --repository='{"type":"path","url":"./kit-export","options":{"symlink":false}}' --stability=dev
 ```
+
+## Module recipes
+
+`docs/modules/<name>.md` are recipes for optional packages (Nitpick, Session Replay, Flow…), and they are checked like code. `scripts/verify-module.sh <name>` copies the working tree to a temporary directory, installs and migrates it as a new project, applies the recipe's annotated code blocks with `scripts/apply-recipe.php` (its header lists the directives), and runs `composer test` and `migrate:fresh --seed`. `--keep` leaves the copy behind; `--path <package>=<directory>@<version>` takes a package from a local checkout, for a release that is not on Packagist yet.
+
+`.github/workflows/modules.yml` runs every recipe on PHP 8.3 each Monday and on demand (one recipe with the `module` input). It runs only in `packstub/filament-saas-starter` (a repository made with **Use this template** copies the file but skips it), and fails when the `module` input names no recipe. It is not part of `Tests passed` on purpose: a plugin release that breaks a recipe should not block pull requests here. Fix the recipe, or the plugin. A recipe that needs an unreleased version carries `<!-- verify: skip until … -->` and is left out of the scheduled run; remove the line once the release is out.
+
+Change a recipe when its plugin changes in a way a user of the kit would notice, and run the script before committing it.
 
 ## Versions
 

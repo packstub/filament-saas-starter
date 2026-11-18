@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Events\AccountDeleting;
 use App\Support\WorkspacePermissions;
 use Database\Factories\UserFactory;
 use Filament\Auth\MultiFactor\App\Concerns\InteractsWithAppAuthentication;
@@ -153,6 +154,9 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
 
             // Last, after the entries the removals above wrote.
             AuditEvent::forget($this);
+
+            // What a module keeps about them goes in its own listener (docs/modules).
+            AccountDeleting::dispatch($this);
 
             $this->notifications()->delete();
             $this->delete();

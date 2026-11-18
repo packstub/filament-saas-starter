@@ -5,6 +5,8 @@ use App\Models\Workspace;
 use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Packstub\Teams\Facades\Teams;
 use Stripe\ApiRequestor;
@@ -193,4 +195,60 @@ function countQueries(Closure $callback): int
     DB::disableQueryLog();
 
     return count(DB::getQueryLog());
+}
+
+/**
+ * The app's own tables: on MySQL and Postgres only the connection's own
+ * database or schema, never another one the same server holds.
+ *
+ * @return list<string>
+ */
+function appTables(): array
+{
+    $schema = match (DB::getDriverName()) {
+        'mysql', 'mariadb' => DB::connection()->getDatabaseName(),
+        'pgsql' => DB::scalar('select current_schema()'),
+        default => null,
+    };
+
+    return collect(Schema::getTables($schema))->pluck('name')
+        ->reject(fn (string $table): bool => $table === 'migrations')
+        ->values()
+        ->all();
+}
+
+/**
+ * The rows that still point at a workspace, per table: a `workspace_id`, or
+ * a polymorphic pair (`tenant_type`/`tenant_id`, `holder_type`/`holder_id`…)
+ * naming it. After `$workspace->delete()` this is empty, apart from the
+ * audit log, which keeps the entry that says it was deleted.
+ *
+ * @return array<string, int>
+ */
+function rowsLeftOf(Workspace $workspace): array
+{
+    $left = [];
+
+    foreach (array_diff(appTables(), ['audit_events']) as $table) {
+        $columns = Schema::getColumnListing($table);
+        $query = DB::table($table)->where(fn ($query) => $query->whereRaw('1 = 0'));
+
+        if (in_array('workspace_id', $columns, true)) {
+            $query->orWhere('workspace_id', $workspace->getKey());
+        }
+
+        foreach ($columns as $column) {
+            if (Str::endsWith($column, '_type') && in_array($id = Str::beforeLast($column, '_type').'_id', $columns, true)) {
+                $query->orWhere(fn ($query) => $query
+                    ->whereIn($column, [$workspace->getMorphClass(), $workspace::class])
+                    ->where($id, (string) $workspace->getKey()));
+            }
+        }
+
+        if (($count = $query->count()) > 0) {
+            $left[$table] = $count;
+        }
+    }
+
+    return $left;
 }
