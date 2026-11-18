@@ -51,7 +51,7 @@ use Packstub\FormBuilder\FormBuilderPlugin;
 FormBuilderPlugin::make()->navigationGroup('Content')->navigationBadge(),
 ```
 
-The **Forms** page lists the current workspace's forms only, and a new form gets the workspace's key. A form's public address is `/forms/{slug}`; slugs are unique across all workspaces, so a workspace may be asked to pick another one.
+The **Forms** page lists the current workspace's forms only, and a new form gets the workspace's key. A form's public address is `/forms/{slug}`; slugs are unique across all workspaces, so a workspace may be asked to pick another one, and someone trying slugs can tell that a form of that name exists somewhere.
 
 ## 3. A plan limit on forms
 
@@ -119,16 +119,25 @@ Laravel finds policies for `App\Models` by name only, so register this one in `a
 ```php use=app/Providers/AppServiceProvider.php
 use App\Policies\FormPolicy;
 use Illuminate\Support\Facades\Gate;
+use Packstub\Features\Facades\Features;
+use Packstub\FormBuilder\FormBuilder;
 use Packstub\FormBuilder\Models\Form;
 ```
 
 ```php in=app/Providers/AppServiceProvider.php after="function boot()|Model::shouldBeStrict("
 
-// Form Builder's forms count against the plan's `forms` limit.
+// Form Builder's forms count against the plan's `forms` limit: the policy hides New form,
+// the hook refuses a form made any other way (Duplicate, Use template, Import).
 Gate::policy(Form::class, FormPolicy::class);
+Form::creating(function (Form $form): void {
+    // Registered before the package fills in the workspace, so read it the way the package does.
+    if (($workspace = $form->workspace_id ?? FormBuilder::currentTenantKey()) !== null) {
+        Features::assertCanUse('forms', Workspace::query()->find($workspace));
+    }
+});
 ```
 
-At the limit, **New form** is gone from the Forms page, as **New project** is on Projects.
+At the limit, **New form** is gone from the Forms page, as **New project** is on Projects, and a form made with **Duplicate**, **Use template** or **Import** is refused (`FeatureLimitReached`): those actions call the package directly, past the policy.
 
 ## 4. Say where its tables live
 
@@ -153,6 +162,7 @@ namespace App\Listeners;
 
 use App\Events\AccountDeleting;
 use App\Events\WorkspaceDeleting;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Packstub\FormBuilder\Models\Form;
 use Packstub\FormBuilder\Models\FormSubmission;
@@ -178,14 +188,44 @@ class DeleteWorkspaceForms
 
         Form::query()->withoutGlobalScopes()->where('workspace_id', $event->workspace->getKey())
             ->each(function (Form $form): void {
-                Storage::disk(Uploads::disk())->deleteDirectory(Uploads::directory($form));
+                $directory = Uploads::directory($form);
                 $form->delete();
+
+                // Files only once the deletion is committed: a rolled-back one keeps them.
+                DB::afterCommit(fn () => Storage::disk(Uploads::disk())->deleteDirectory($directory));
             });
     }
 }
 ```
 
-## 6. Test it
+## 6. Put them in the data exports
+
+Submissions are your customers' customers' personal data, so they belong in **Export workspace data**. In `app/Support/DataExport.php`:
+
+```php use=app/Support/DataExport.php
+use Packstub\FormBuilder\Models\Form;
+use Packstub\FormBuilder\Models\FormSubmission;
+```
+
+at the end of the array `forWorkspace()` returns:
+
+```php in=app/Support/DataExport.php before="function forWorkspace(|        ];" indent=12
+// Form Builder: each form with its fields, and every submission.
+'forms' => Form::query()->withoutGlobalScopes()->where('workspace_id', $workspace->getKey())->oldest('id')->get()
+    ->map(fn (Form $form): array => $form->only(['name', 'slug', 'fields', 'is_active', 'created_at']))->all(),
+'form_submissions' => FormSubmission::query()->whereIn('form_id', Form::query()->withoutGlobalScopes()->where('workspace_id', $workspace->getKey())->select('id'))
+    ->lazyById(500)->map(fn (FormSubmission $submission): array => $submission->only(['form_id', 'data', 'created_at'])),
+```
+
+and what a person sent while signed in, at the end of `forUser()`:
+
+```php in=app/Support/DataExport.php before="function forUser(|        ];" indent=12
+// Form Builder: the forms this person filled in while signed in.
+'form_submissions' => FormSubmission::query()->where('user_id', $user->getKey())->oldest('id')->get()
+    ->map(fn (FormSubmission $submission): array => $submission->only(['form_id', 'data', 'created_at']))->all(),
+```
+
+## 7. Test it
 
 `tests/Feature/Modules/FormBuilderTest.php`:
 
@@ -194,6 +234,9 @@ class DeleteWorkspaceForms
 
 use App\Models\User;
 use App\Models\Workspace;
+use App\Support\DataExport;
+use Packstub\Features\Exceptions\FeaturesException;
+use Packstub\FormBuilder\Filament\FormActions;
 use Packstub\FormBuilder\Models\Form;
 use Packstub\FormBuilder\Models\FormSubmission;
 
@@ -234,6 +277,15 @@ it('lets a workspace create forms while its plan has room', function (string $pl
     'pro, room left' => ['pro', 1, true],
 ]);
 
+it('holds the plan limit when a form is duplicated or made from a template', function () {
+    $workspace = workspace('free');
+    formOf($workspace);
+    inWorkspace($workspace);
+
+    expect(fn () => FormActions::createFrom(['name' => 'Copy', 'fields' => []]))->toThrow(FeaturesException::class)
+        ->and(Form::query()->withoutGlobalScopes()->count())->toBe(1);
+});
+
 it('puts a new form in the current workspace', function () {
     $workspace = workspace();
     inWorkspace($workspace);
@@ -253,9 +305,23 @@ it('deletes the forms of a deleted workspace, and forgets a deleted person', fun
 
     $owner->deleteAccount();
 
-    expect(Form::query()->withoutGlobalScopes()->pluck('id')->all())->toBe([$theirs->id])
+    expect(rowsLeftOf($workspace))->toBe([])
+        ->and(Form::query()->withoutGlobalScopes()->pluck('id')->all())->toBe([$theirs->id])
         ->and($theirs->fresh()->user_id)->toBeNull()
         ->and(FormSubmission::query()->sole()->user_id)->toBeNull();
+});
+
+it('puts forms and submissions in the exports', function () {
+    $owner = User::factory()->create();
+    $workspace = workspace(owner: $owner);
+    $form = formOf($workspace);
+    FormSubmission::query()->forceCreate(['form_id' => $form->id, 'user_id' => $owner->id, 'data' => ['message' => 'Hello']]);
+
+    $export = DataExport::forWorkspace($workspace);
+
+    expect(collect($export['forms'])->pluck('name')->all())->toBe(['Contact'])
+        ->and(collect($export['form_submissions'])->pluck('data')->all())->toBe([['message' => 'Hello']])
+        ->and(DataExport::forUser($owner)['form_submissions'])->toHaveCount(1);
 });
 ```
 
@@ -273,7 +339,7 @@ Two ways, pick one when you move:
 
 ## Removing it
 
-Delete the plugin lines and import from `app/Filament/Plugins.php`, the policy and its `Gate::policy()` line, the `forms` feature, plan values and `usage()` line, `app/Listeners/DeleteWorkspaceForms.php`, `tests/Feature/Modules/FormBuilderTest.php` and the four lines in `centralTables()`, then:
+Delete the plugin lines and import from `app/Filament/Plugins.php`, the policy, its `Gate::policy()` line and the `Form::creating()` hook, the export lines, the `forms` feature, plan values and `usage()` line, `app/Listeners/DeleteWorkspaceForms.php`, `tests/Feature/Modules/FormBuilderTest.php` and the four lines in `centralTables()`, then:
 
 ```bash
 composer remove packstub/filament-form-builder
