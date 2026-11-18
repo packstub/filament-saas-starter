@@ -84,6 +84,7 @@ use Packstub\Flow\Models\Workflow;
 Flow disables **New workflow** at the limit, but a workflow can also be made with **Replicate**, from a template or by import. Hold the limit where every one of them ends up, on the model, in `app/Providers/AppServiceProvider.php`:
 
 ```php use=app/Providers/AppServiceProvider.php
+use Filament\Facades\Filament;
 use Packstub\Features\Facades\Features;
 use Packstub\Flow\Models\Workflow;
 ```
@@ -92,8 +93,13 @@ use Packstub\Flow\Models\Workflow;
 
 // A workspace's workflows stay within its plan however they are made (new, replicated, imported).
 Workflow::creating(function (Workflow $workflow): void {
-    if ($workflow->tenant_type === (new Workspace)->getMorphClass()) {
-        Features::assertCanUse('workflows', Workspace::query()->find($workflow->tenant_id));
+    // Registered before the panel attaches the workspace, so fall back to the current one.
+    $workspace = $workflow->tenant_type === (new Workspace)->getMorphClass()
+        ? Workspace::query()->find($workflow->tenant_id)
+        : ($workflow->tenant_type === null ? Filament::getTenant() : null);
+
+    if ($workspace instanceof Workspace) {
+        Features::assertCanUse('workflows', $workspace);
     }
 });
 ```
@@ -281,6 +287,7 @@ it('holds the plan limit however a workflow is made', function () {
 
     expect(fn () => $first->replicate()->save())->toThrow(FeaturesException::class)
         ->and(fn () => WorkflowTransfer::import(workflowUsing(WriteLog::class), ['tenant_type' => 'workspace', 'tenant_id' => (string) $workspace->id]))->toThrow(FeaturesException::class)
+        ->and(fn () => Workflow::query()->create(['name' => 'From a template']))->toThrow(FeaturesException::class)
         ->and(Workflow::query()->withoutGlobalScopes()->count())->toBe(1);
 });
 
