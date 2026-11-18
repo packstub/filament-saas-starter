@@ -4,7 +4,6 @@ namespace App\Filament\App\Pages\Auth;
 
 use App\Models\User;
 use App\Models\Workspace;
-use App\Support\DataExport;
 use Filament\Actions\Action;
 use Filament\Auth\Pages\EditProfile as BaseEditProfile;
 use Filament\Facades\Filament;
@@ -48,7 +47,8 @@ class EditProfile extends BaseEditProfile
     }
 
     /**
-     * Everything the app holds about this person (App\Support\DataExport::forUser()).
+     * Everything the app holds about this person (App\Support\DataExport::forUser()),
+     * downloaded from App\Http\Controllers\PersonalDataExportController.
      */
     public function downloadDataAction(): Action
     {
@@ -57,7 +57,7 @@ class EditProfile extends BaseEditProfile
             ->icon(Heroicon::OutlinedArrowDownTray)
             ->color('gray')
             ->authorize(fn (): bool => $this->isOwnAccount())
-            ->action(fn () => DataExport::download(DataExport::forUser($this->getUser()), 'my-data-'.now()->format('Y-m-d').'.json'));
+            ->url(fn (): string => route('exports.personal'));
     }
 
     /**

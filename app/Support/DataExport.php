@@ -19,8 +19,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 /**
  * The data exports people download: everything the app holds about one
  * person (the Profile page), and everything a workspace holds (Workspace
- * settings, for owners). Both are JSON, written to the browser as they are
- * read, so a workspace with many projects never sits in memory whole.
+ * settings, for owners). Both are JSON, served by PersonalDataExportController
+ * and WorkspaceDataExportController (App\Http\Controllers) and written to the
+ * browser as they are read, so a workspace with many projects never sits in
+ * memory whole.
  *
  * A table you add for a workspace belongs in forWorkspace() too: a lazy
  * query streams its rows one by one, like the projects.

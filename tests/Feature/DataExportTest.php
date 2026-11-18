@@ -10,6 +10,8 @@ use Packstub\Features\Facades\Features;
 use Packstub\Teams\Facades\Teams;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+use function Pest\Laravel\actingAs;
+use function Pest\Laravel\get;
 use function Pest\Laravel\postJson;
 use function Pest\Livewire\livewire;
 
@@ -80,7 +82,7 @@ it('writes an empty list for a workspace without projects', function () {
     expect($export['projects'])->toBe([]);
 });
 
-it('downloads the personal export from the Profile page, but not during a support login', function () {
+it('links Download your data on the Profile page, but not during a support login', function () {
     $workspace = workspace();
     $owner = Teams::ownersOf($workspace)->first();
 
@@ -88,8 +90,7 @@ it('downloads the personal export from the Profile page, but not during a suppor
 
     livewire(EditProfile::class)
         ->assertSee('Download your data')
-        ->callAction('downloadData')
-        ->assertFileDownloaded('my-data-'.now()->format('Y-m-d').'.json');
+        ->assertActionHasUrl('downloadData', route('exports.personal'));
 
     inAdminPanel();
     livewire(ManageUsers::class)->callAction(TestAction::make('impersonate')->table($owner));
@@ -98,20 +99,53 @@ it('downloads the personal export from the Profile page, but not during a suppor
     livewire(EditProfile::class)
         ->assertDontSee('Download your data')
         ->assertActionHidden('downloadData');
+
+    // The first refusal after a switch falls back to the customer's panel; after that it is a plain 403.
+    get(route('exports.personal'))->assertRedirect()->assertHeaderMissing('Content-Disposition');
+    get(route('exports.personal'))->assertForbidden();
 });
 
-it('downloads the workspace export from Workspace settings, for owners only', function () {
+it('streams the personal export as a download to the person signed in', function () {
+    $user = Teams::ownersOf(workspace())->first();
+
+    get(route('exports.personal'))->assertRedirect('/app/login');
+
+    $response = actingAs($user)->get(route('exports.personal'))
+        ->assertOk()
+        ->assertDownload('my-data-'.now()->format('Y-m-d').'.json');
+
+    expect(json_decode($response->streamedContent(), true)['account']['email'])->toBe($user->email);
+});
+
+it('links Export workspace data in Workspace settings, for owners only', function () {
     $workspace = workspace();
 
     inWorkspace($workspace);
 
     livewire(EditWorkspace::class)
-        ->callAction('export')
-        ->assertFileDownloaded($workspace->slug.'-'.now()->format('Y-m-d').'.json');
+        ->assertActionHasUrl('export', route('exports.workspace', $workspace));
 
     inWorkspace($workspace, memberOf($workspace, 'admin'));
 
     livewire(EditWorkspace::class)
         ->assertDontSee('Export workspace data')
         ->assertActionHidden('export');
+});
+
+it('streams the workspace export to its owners and to nobody else', function () {
+    $workspace = workspace('pro');
+    Project::factory()->count(2)->for($workspace)->create();
+    $url = route('exports.workspace', $workspace);
+
+    get($url)->assertRedirect('/app/login');
+
+    foreach ([memberOf($workspace, 'admin'), memberOf($workspace, 'member'), Teams::ownersOf(workspace())->first()] as $someoneElse) {
+        actingAs($someoneElse)->get($url)->assertForbidden();
+    }
+
+    $response = actingAs(Teams::ownersOf($workspace)->first())->get($url)
+        ->assertOk()
+        ->assertDownload($workspace->slug.'-'.now()->format('Y-m-d').'.json');
+
+    expect(json_decode($response->streamedContent(), true)['projects'])->toHaveCount(2);
 });

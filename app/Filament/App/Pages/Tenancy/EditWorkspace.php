@@ -3,7 +3,6 @@
 namespace App\Filament\App\Pages\Tenancy;
 
 use App\Models\Workspace;
-use App\Support\DataExport;
 use Filament\Actions\Action;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\TextInput;
@@ -57,7 +56,8 @@ class EditWorkspace extends EditTenantProfile
     }
 
     /**
-     * Everything the workspace holds (App\Support\DataExport::forWorkspace()), for owners.
+     * Everything the workspace holds (App\Support\DataExport::forWorkspace()), for
+     * owners, downloaded from App\Http\Controllers\WorkspaceDataExportController.
      */
     public function exportAction(): Action
     {
@@ -66,7 +66,7 @@ class EditWorkspace extends EditTenantProfile
             ->icon(Heroicon::OutlinedArrowDownTray)
             ->color('gray')
             ->authorize(fn (): bool => $this->canExport())
-            ->action(fn () => DataExport::download(DataExport::forWorkspace($this->workspace()), $this->workspace()->slug.'-'.now()->format('Y-m-d').'.json'));
+            ->url(fn (): string => route('exports.workspace', $this->workspace()));
     }
 
     /**
