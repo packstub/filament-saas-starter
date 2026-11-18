@@ -1,10 +1,11 @@
-{{-- Under the sign-in and sign-up forms: one button per provider set up in config/services.php. --}}
+{{-- Under the sign-in and sign-up forms: one button per provider set up in config/services.php.
+     Inline styles: the panel's stylesheet only holds the classes Filament itself uses. --}}
 @if ($providers)
     <div style="display:flex;flex-direction:column;gap:.75rem">
-        <div style="display:flex;align-items:center;gap:.75rem;font-size:.875rem" class="text-gray-500 dark:text-gray-400">
-            <span style="flex:1;height:1px" class="bg-gray-200 dark:bg-white/10"></span>
+        <div style="display:flex;align-items:center;gap:.75rem;font-size:.875rem;color:var(--gray-500)">
+            <span style="flex:1;height:1px;background:rgb(127 127 127 / .25)"></span>
             or
-            <span style="flex:1;height:1px" class="bg-gray-200 dark:bg-white/10"></span>
+            <span style="flex:1;height:1px;background:rgb(127 127 127 / .25)"></span>
         </div>
 
         @foreach ($providers as $provider => $label)
