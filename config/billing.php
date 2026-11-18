@@ -21,16 +21,24 @@ return [
     | one. A subscription on a price that is not listed keeps the workspace on
     | its current plan and writes a warning to the log.
     |
+    | `per_seat` bills a plan per member: the subscription's quantity follows
+    | the number of members, updated whenever someone joins or leaves. Its
+    | Stripe prices are then per unit ("$9 per seat"), its `amount` should say
+    | so, and its `seats` limit in config/packstub-features.php is usually
+    | null (unlimited) or a cap. Off for every plan by default: a flat price.
+    |
     */
 
     'plans' => [
         'pro' => [
             'monthly' => ['price' => env('STRIPE_PRICE_PRO_MONTHLY'), 'amount' => '$29/mo'],
             'yearly' => ['price' => env('STRIPE_PRICE_PRO_YEARLY'), 'amount' => '$290/yr'],
+            'per_seat' => false,
         ],
         'business' => [
             'monthly' => ['price' => env('STRIPE_PRICE_BUSINESS_MONTHLY'), 'amount' => '$99/mo'],
             'yearly' => ['price' => env('STRIPE_PRICE_BUSINESS_YEARLY'), 'amount' => '$990/yr'],
+            'per_seat' => false,
         ],
     ],
 

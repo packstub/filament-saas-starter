@@ -229,6 +229,47 @@ class Workspace extends Model
     }
 
     /**
+     * How many seats a per-seat plan bills this workspace for: its members.
+     * Pending invitations hold a seat against the plan's limit but are not
+     * billed until someone accepts.
+     */
+    public function billableSeats(): int
+    {
+        return max(1, Teams::membersOf($this)->count());
+    }
+
+    /**
+     * The quantity a subscription on this price should have: the billable
+     * seats on a per-seat plan, one on a flat one.
+     */
+    public function quantityFor(string $price): int
+    {
+        return StripePrices::perSeat(StripePrices::plan($price)) ? $this->billableSeats() : 1;
+    }
+
+    /**
+     * Bring the quantity of a per-seat subscription in Stripe in line with
+     * the members, after someone joined or left. Nothing to do on a flat
+     * plan, without a Stripe secret, or for a subscription that is not in
+     * good standing (Stripe refuses to change an incomplete one).
+     */
+    public function syncSeatQuantity(): void
+    {
+        $subscription = $this->currentSubscription();
+
+        if (blank(config('cashier.secret')) || ! $subscription?->valid() || $subscription->incomplete()
+            || ! StripePrices::perSeat(StripePrices::plan($subscription->stripe_price))) {
+            return;
+        }
+
+        $seats = $this->billableSeats();
+
+        if ($subscription->quantity !== $seats) {
+            $subscription->updateQuantity($seats);
+        }
+    }
+
+    /**
      * The address Stripe sends receipts to: the first owner's.
      */
     public function stripeEmail(): ?string

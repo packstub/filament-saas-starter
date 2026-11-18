@@ -10,7 +10,7 @@ Free and open source, under the MIT license.
 - **[Workspaces](#workspaces)**: every sign-up gets one, a person can belong to several, and everything in the panel is scoped to the current one.
 - **[Team members](#members-and-invitations)**: invitations by e-mail or link, the roles Owner, Admin and Member, and seats counted against the plan.
 - **[Plans and limits](#plans-and-limits)**: Free, Pro and Business in one config file, a **Your plan** page with usage, and overrides for a single workspace.
-- **[Billing](#billing-with-stripe)**: Stripe Checkout and the customer portal through Laravel Cashier, monthly and yearly prices and a free trial, with a webhook that puts the workspace on the plan it pays for.
+- **[Billing](#billing-with-stripe)**: Stripe Checkout and the customer portal through Laravel Cashier, monthly and yearly prices, a free trial and optional per-seat pricing, with a webhook that puts the workspace on the plan it pays for.
 - **[Support logins](#support-logins)**: an admin panel where you sign in as a customer to see what they see, with a log of every switch.
 - **[One complete example](#the-projects-pattern)**: Projects, scoped to the workspace, guarded by a policy and counted against a plan limit.
 - **[Tests](#tests)**: a Pest suite over all of the above, and GitHub Actions to run it.
@@ -182,6 +182,16 @@ How a payment becomes a plan:
 - Deleting a `Workspace` cancels its Stripe subscription first (the `deleting` hook on the model), so nothing keeps billing, then removes its projects, subscription rows and feature overrides. The kit has no button that deletes a workspace; add one where it suits your product.
 - A subscription on a price that `config/billing.php` does not list (a price added in the Stripe dashboard, say) leaves the plan as it is and writes a warning to the log.
 
+#### Per-seat pricing
+
+Plans are flat by default: one price, whatever the number of members. To bill a plan per member instead, set `'per_seat' => true` on it in `config/billing.php`, give it per-unit prices in Stripe ("$9 per seat"), and say so in its `amount`. Then:
+
+- Checkout starts the subscription with one seat per member. Pending invitations hold a seat against the plan's limit but are billed only once accepted.
+- When someone joins (an accepted invitation included) or leaves, `app/Listeners/SyncSeatQuantityWithStripe.php` sets the subscription's quantity to the number of members, and Stripe prorates the difference. It runs on the queue once the membership is saved, so run a queue worker in production; a call Stripe refuses is reported and tried again.
+- Every subscription webhook checks the quantity too, so a change made in the Stripe dashboard or a failed update is put right.
+- Switching between a flat and a per-seat plan sets the quantity to match.
+- Give a per-seat plan unlimited `seats` in `config/packstub-features.php` (or a cap you want), since every seat is paid for.
+
 In production, set `STRIPE_WEBHOOK_SECRET` before taking payments. Cashier verifies a webhook's signature only when the secret is set. Until it is, the app refuses Stripe's webhooks with a 403 and an error in the log (`app/Listeners/RefuseUnsignedStripeWebhooks.php`), and the Billing page sells nothing.
 
 The amounts people see (`$29/mo`, `$290/yr`) are text next to each price in `config/billing.php`. Keep them in step with your Stripe prices. Read more in the [Laravel Cashier docs](https://laravel.com/docs/billing).
@@ -241,6 +251,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 - `ProjectLimitTest`: projects stay in their workspace, creating stops at the plan's limit and resumes on a bigger plan, a smaller plan keeps what is there.
 - `ProjectAccessTest`: what each role may do with a project, other workspaces' projects stay out of reach by URL and by action, and the list runs the same number of queries however long it is.
 - `BillingTest`: subscription webhooks (created, updated, each Stripe status, a trial and its end, deleted, customer deleted) change the plan and the limits; signed and unsigned webhooks; unknown prices.
+- `SeatBillingTest`: per-seat plans: Checkout with a seat per member, the quantity following members who join, leave or accept an invitation, flat plans left alone, Stripe errors, a quantity put right by the next webhook.
 - `BillingPageTest`: the Billing page by role, with and without Stripe keys, monthly and yearly prices, the free trial, Checkout, switching plans and intervals, the customer portal, a past-due subscription and a payment that needs confirming.
 - `SupportLoginTest`: the admin panel is for admins, signing in as a customer and switching back, changing a plan by hand, the admin tables.
 - `SeederTest` and `ScheduleTest`: the demo data seeds once and never in production; the daily housekeeping is scheduled.

@@ -109,7 +109,7 @@ class Billing extends Page
     }
 
     /**
-     * @return list<array{key: string, label: string, description: ?string, price: ?string, lines: list<string>, current: bool, sold: bool}>
+     * @return list<array{key: string, label: string, description: ?string, price: ?string, lines: list<string>, current: bool, sold: bool, per_seat: bool}>
      */
     public function getPlans(): array
     {
@@ -126,6 +126,7 @@ class Billing extends Page
             // Pro billed monthly is not the current plan on the Yearly tab: it can be switched to.
             'current' => $plan->key === $current && ($subscribed === null || $subscribed === $interval || StripePrices::for($plan->key, $interval) === null),
             'sold' => StripePrices::for($plan->key, $interval) !== null,
+            'per_seat' => StripePrices::perSeat($plan->key),
         ], Features::plans()));
     }
 
@@ -238,6 +239,7 @@ class Billing extends Page
 
                 return $this->toStripe(fn (): string => $this->workspace()
                     ->newSubscription('default', $price)
+                    ->quantity($this->workspace()->quantityFor($price))
                     ->when($trialDays > 0, fn ($subscription) => $subscription->trialDays($trialDays))
                     ->allowPromotionCodes()
                     ->checkout([
@@ -269,7 +271,8 @@ class Billing extends Page
                 }
 
                 try {
-                    $this->workspace()->currentSubscription()->swap($price);
+                    // A per-seat plan is billed for the members, a flat one once.
+                    $this->workspace()->currentSubscription()->swap([$price => ['quantity' => $this->workspace()->quantityFor($price)]]);
                 } catch (IncompletePayment $exception) {
                     // The card needs a confirmation (3D Secure) or was declined: Cashier's payment
                     // page takes it from here, and the webhook sets the plan once the payment is through.
@@ -294,6 +297,14 @@ class Billing extends Page
     public function hasSubscription(): bool
     {
         return $this->workspace()->currentSubscription() !== null;
+    }
+
+    /**
+     * The members a per-seat plan bills for.
+     */
+    public function billableSeats(): int
+    {
+        return $this->workspace()->billableSeats();
     }
 
     /**

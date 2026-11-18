@@ -15,25 +15,6 @@ use function Pest\Laravel\get;
 use function Pest\Laravel\postJson;
 use function Pest\Livewire\livewire;
 
-/**
- * Stripe's answer to a subscription being read or changed.
- */
-function stripeSubscription(string $price, string $status = 'active', array $extra = []): array
-{
-    return [
-        'id' => 'sub_test',
-        'object' => 'subscription',
-        'status' => $status,
-        'items' => ['object' => 'list', 'data' => [[
-            'id' => 'si_test',
-            'object' => 'subscription_item',
-            'quantity' => 1,
-            'price' => ['id' => $price, 'object' => 'price', 'product' => 'prod_test'],
-        ]]],
-        ...$extra,
-    ];
-}
-
 beforeEach(function () {
     $this->workspace = workspace('free');
     $this->workspace->forceFill(['stripe_id' => 'cus_test'])->save();

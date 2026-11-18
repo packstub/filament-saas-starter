@@ -97,13 +97,32 @@ function stripeSubscriptionEvent(string $type, Workspace $workspace, string $pri
                 'items' => [
                     'data' => [[
                         'id' => 'si_test',
-                        'quantity' => 1,
+                        'quantity' => $extra['quantity'] ?? 1,
                         'price' => ['id' => $price, 'product' => 'prod_test'],
                     ]],
                 ],
                 ...$extra,
             ],
         ],
+    ];
+}
+
+/**
+ * Stripe's answer to a subscription being read or changed.
+ */
+function stripeSubscription(string $price, string $status = 'active', array $extra = []): array
+{
+    return [
+        'id' => 'sub_test',
+        'object' => 'subscription',
+        'status' => $status,
+        'items' => ['object' => 'list', 'data' => [[
+            'id' => 'si_test',
+            'object' => 'subscription_item',
+            'quantity' => $extra['quantity'] ?? 1,
+            'price' => ['id' => $price, 'object' => 'price', 'product' => 'prod_test'],
+        ]]],
+        ...$extra,
     ];
 }
 

@@ -87,6 +87,12 @@
                         <x-filament::badge color="info" style="align-self:flex-start">{{ $this->trialDaysOnOffer() }}-day free trial</x-filament::badge>
                     @endif
 
+                    @if ($plan['per_seat'])
+                        <div style="font-size:.75rem;opacity:.7">
+                            Per member: {{ $this->billableSeats() }} {{ str('member')->plural($this->billableSeats()) }} today, updated as people join and leave.
+                        </div>
+                    @endif
+
                     @if ($plan['description'])
                         <div style="font-size:.875rem;opacity:.7">{{ $plan['description'] }}</div>
                     @endif

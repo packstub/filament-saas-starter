@@ -46,6 +46,14 @@ final class StripePrices
     }
 
     /**
+     * Whether a plan is billed per member (the subscription's quantity) instead of at a flat price.
+     */
+    public static function perSeat(?string $plan): bool
+    {
+        return $plan !== null && (bool) config("billing.plans.{$plan}.per_seat", false);
+    }
+
+    /**
      * The plan a Stripe price belongs to, or null for a price no plan is sold at.
      */
     public static function plan(?string $price): ?string

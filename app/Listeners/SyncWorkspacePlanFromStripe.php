@@ -25,6 +25,10 @@ class SyncWorkspacePlanFromStripe
 
         if ($workspace instanceof Workspace) {
             $workspace->syncPlanFromSubscription();
+
+            // A per-seat subscription whose quantity drifted from the members (a sync
+            // that failed, a change in the Stripe dashboard) is put right here.
+            $workspace->syncSeatQuantity();
         }
     }
 
