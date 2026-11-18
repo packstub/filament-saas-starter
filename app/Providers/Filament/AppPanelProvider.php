@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\App\Pages\Auth\EditProfile;
 use App\Filament\App\Pages\Tenancy\EditWorkspace;
 use App\Filament\App\Pages\Tenancy\RegisterWorkspace;
 use App\Models\User;
@@ -49,7 +50,8 @@ class AppPanelProvider extends PanelProvider
             ->emailVerification()
             // The same goes for a new address on the Profile page: it replaces the old one only after its link is followed.
             ->emailChangeVerification()
-            ->profile()
+            // Filament's profile page, with Delete account added.
+            ->profile(EditProfile::class)
             // Two-factor authentication with an authenticator app, switched on by each person on their Profile page.
             ->multiFactorAuthentication([
                 AppAuthentication::make()->recoverable(),

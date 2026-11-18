@@ -6,7 +6,7 @@ Free and open source, under the MIT license.
 
 ## What you get in the first hour
 
-- **[Sign-up and log-in](#accounts-and-security)**: Filament's own auth pages, with e-mail verification, password reset, a profile page and two-factor authentication.
+- **[Sign-up and log-in](#accounts-and-security)**: Filament's own auth pages, with e-mail verification, password reset, a profile page, two-factor authentication and account deletion.
 - **[Workspaces](#workspaces)**: every sign-up gets one, a person can belong to several, and everything in the panel is scoped to the current one.
 - **[Team members](#members-and-invitations)**: invitations by e-mail or link, the roles Owner, Admin and Member, and seats counted against the plan.
 - **[Plans and limits](#plans-and-limits)**: Free, Pro and Business in one config file, a **Your plan** page with usage, and overrides for a single workspace.
@@ -98,6 +98,7 @@ A workspace is the tenant: the `App\Models\Workspace` model, with its slug in th
 - **Passwords** follow `Password::defaults()` in `app/Providers/AppServiceProvider.php`, on the sign-up, password reset and profile pages: at least 12 characters and not found in known data leaks in production, at least 8 elsewhere so the demo accounts can keep `password`.
 - **Two-factor authentication** is Filament's own, with an authenticator app and recovery codes. Customers switch it on from their **Profile** page. The admin panel requires it: an admin without it is sent to set it up before any page opens. In the local environment `/admin` skips that step, so the demo admin gets in with one click.
 - The secret and the recovery codes are stored encrypted in two columns of the `users` table.
+- **Delete account** is at the bottom of the **Profile** page (`app/Filament/App/Pages/Auth/EditProfile.php`), behind the person's password. `User::deleteAccount()` deletes every workspace where they are the only member (cancelling its subscription first) and takes them out of the others. Someone who is the only owner of a workspace others still use is asked to hand it over under **Members** (**Transfer ownership**) or delete it first, so no workspace is left without an owner. The button is hidden during a support login.
 - **Strict models**: outside production, `Model::shouldBeStrict()` turns a lazy-loaded relation (an N+1 query), a missing attribute and a field left out of `Fillable` into an error, so you find them while developing.
 
 ### Members and invitations
@@ -246,6 +247,7 @@ This checks the code style with Pint and runs the Pest suite. In `tests/Feature`
 
 - `HomePageTest`: the home page links to sign-up and log-in.
 - `SignUpTest`: signing up creates a workspace with the person as owner, the panel opens after e-mail verification, long names, a second workspace, guests and other people's workspaces stay closed.
+- `AccountTest`: deleting an account with its password, what goes with it and what stays, the only owner of a shared workspace, support logins.
 - `AuthenticationTest`: the password rules, signing in with and without an authenticator app, two-factor authentication required for the admin panel.
 - `WorkspaceTest`: reserved slugs, workspace settings by role, deleting a workspace from its settings (owners only, the typed name, Stripe first) and what that removes.
 - `InvitationTest`: inviting from the Members page, signing up through an invitation, accepting with an existing account, an unverified account that claims an invited address, expired invitations, the seat limit.

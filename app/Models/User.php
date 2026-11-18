@@ -19,6 +19,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use LogicException;
 use Packstub\AccountSwitcher\Concerns\HasLinkedAccounts;
 use Packstub\Teams\Concerns\HasTeamMemberships;
 use Packstub\Teams\Facades\Teams;
@@ -78,6 +81,46 @@ class User extends Authenticatable implements FilamentUser, HasAppAuthentication
     public function getDefaultTenant(Panel $panel): ?Model
     {
         return Teams::teamsOf($this)->latest('workspace_user.created_at')->first();
+    }
+
+    /**
+     * The workspaces that stop this account from being deleted: those where
+     * this person is the only owner while others are still members. They
+     * hand over ownership or delete the workspace first.
+     *
+     * @return Collection<int, Workspace>
+     */
+    public function workspacesBlockingDeletion(): Collection
+    {
+        return Teams::teamsOf($this)->get()
+            ->filter(fn (Workspace $workspace): bool => $this->ownsTeam($workspace)
+                && Teams::ownersOf($workspace)->count() === 1
+                && Teams::membersOf($workspace)->count() > 1)
+            ->values();
+    }
+
+    /**
+     * Delete the account: every workspace where this person is the only
+     * member goes too (its Stripe subscription cancelled first, see
+     * Workspace::delete()), and they leave every other one. All or nothing,
+     * in one transaction; a subscription Stripe will not cancel stops it.
+     */
+    public function deleteAccount(): void
+    {
+        if ($this->workspacesBlockingDeletion()->isNotEmpty()) {
+            throw new LogicException('Hand over or delete the workspaces this account is the only owner of first.');
+        }
+
+        DB::transaction(function (): void {
+            foreach (Teams::teamsOf($this)->get() as $workspace) {
+                Teams::membersOf($workspace)->count() === 1
+                    ? $workspace->delete()
+                    : Teams::removeMember($workspace, $this);
+            }
+
+            $this->notifications()->delete();
+            $this->delete();
+        });
     }
 
     /**
