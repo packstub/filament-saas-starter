@@ -26,6 +26,13 @@ Tell Flow how to find the workspace of a record, so a project created from the A
 PACKSTUB_FLOW_TENANT_RELATIONSHIP=workspace
 ```
 
+```dotenv append=.env.example
+# Flow: a record's workspace is its `workspace` relationship.
+PACKSTUB_FLOW_TENANT_RELATIONSHIP=workspace
+```
+
+Without it in production, a project created outside the panel starts only global workflows, never the workspace's.
+
 ## 2. Let projects start workflows
 
 The **Record created / updated / deleted** triggers list the models that use Flow's `HasWorkflows` trait. In `app/Models/Project.php`:
@@ -71,8 +78,27 @@ use Packstub\Flow\Models\Workflow;
 ```
 
 ```php in=app/Support/Plans.php after="->usage('seats',"
-->usage('workflows', fn (?Workspace $workspace): int => $workspace ? Workflow::query()->ofTenant($workspace)->count() : 0)
+->usage('workflows', fn (?Workspace $workspace): int => $workspace ? Workflow::query()->withoutGlobalScopes()->ofTenant($workspace)->count() : 0)
 ```
+
+Flow disables **New workflow** at the limit, but a workflow can also be made with **Replicate**, from a template or by import. Hold the limit where every one of them ends up, on the model, in `app/Providers/AppServiceProvider.php`:
+
+```php use=app/Providers/AppServiceProvider.php
+use Packstub\Features\Facades\Features;
+use Packstub\Flow\Models\Workflow;
+```
+
+```php in=app/Providers/AppServiceProvider.php after="function boot()|Model::shouldBeStrict("
+
+// A workspace's workflows stay within its plan however they are made (new, replicated, imported).
+Workflow::creating(function (Workflow $workflow): void {
+    if ($workflow->tenant_type === (new Workspace)->getMorphClass()) {
+        Features::assertCanUse('workflows', Workspace::query()->find($workflow->tenant_id));
+    }
+});
+```
+
+Past the limit it throws `Packstub\Features\Exceptions\FeatureLimitReached`, so nothing is saved. Do the same for any module whose records count against a plan: the button is for the eye, the model hook is the rule.
 
 ## 4. Register the plugin on the app panel
 
@@ -82,14 +108,24 @@ In `app/Filament/Plugins.php`:
 use App\Models\Workspace;
 use Packstub\Features\Facades\Features;
 use Packstub\Flow\FlowPlugin;
+use Packstub\Flow\Nodes\Actions\CreateRecord;
+use Packstub\Flow\Nodes\Actions\FindRecords;
+use Packstub\Flow\Nodes\Actions\ForEachLoop;
+use Packstub\Flow\Nodes\Actions\UpdateRecord;
 ```
 
 ```php in=app/Filament/Plugins.php before="function app()|];"
 // Workflows, runs, approvals and secrets per workspace; how many workflows comes from the plan.
 FlowPlugin::make()
     ->navigationGroup('Automation')
-    ->maxWorkflows(fn (?Workspace $workspace): ?int => $workspace ? Features::limit('workflows', $workspace) : null),
+    ->maxWorkflows(fn (?Workspace $workspace): ?int => $workspace ? Features::limit('workflows', $workspace) : null)
+    // Off for your customers: these nodes can touch any model of the app, not just the workspace's.
+    ->without([FindRecords::class, CreateRecord::class, UpdateRecord::class, ForEachLoop::class]),
 ```
+
+**Find records**, **Create record**, **Update record** and **For each** are disabled in the kit because they can touch any model, and a workspace's members must only reach their own workspace's data. Flow refuses to save, import or run a workflow that uses them. The triggers and the other actions (tags, owners, status changes on the record that started the run, e-mails, notifications, HTTP requests, approvals, waits) stay. Give a trusted team of your own the full set in a panel without tenancy, if you need it.
+
+E-mail, SMS and HTTP actions send from your accounts and your domain. On a free plan you may want them off too (`->without([SendEmail::class, SendSms::class])`), or behind a plan feature.
 
 The panel's tenancy scopes everything to the current workspace: workflows, secrets, runs and approvals. At the limit, **New workflow** is disabled with a tooltip. Global workflows (no workspace) can only be made in code or from a panel without tenancy; the kit's admin panel does not list them.
 
@@ -146,7 +182,27 @@ class DeleteWorkspaceWorkflows
 
 Workflows remember who saved them last as an e-mail address in `created_by` and `updated_by`. A deleted person's address stays there until the workspace goes; clear it in a listener of `App\Events\AccountDeleting` if your privacy policy promises otherwise.
 
-## 7. Test it
+## 7. Put them in the workspace's export
+
+An owner's **Export workspace data** holds everything the workspace owns. In `app/Support/DataExport.php`:
+
+```php use=app/Support/DataExport.php
+use Packstub\Flow\Models\Secret;
+use Packstub\Flow\Models\Workflow;
+```
+
+at the end of the array `forWorkspace()` returns:
+
+```php in=app/Support/DataExport.php before="function forWorkspace(|        ];" indent=12
+// Flow: the workflows as built, and the names of the secrets (never their values).
+'workflows' => Workflow::query()->withoutGlobalScopes()->ofTenant($workspace)->oldest()->get()
+    ->map(fn (Workflow $workflow): array => $workflow->only(['name', 'description', 'is_active', 'definition', 'created_at']))->all(),
+'workflow_secrets' => Secret::query()->withoutGlobalScopes()->ofTenant($workspace)->pluck('key')->all(),
+```
+
+Runs are left out: they are a log of what ran, and Flow prunes them (`prune_runs_after_days`).
+
+## 8. Test it
 
 `tests/Feature/Modules/FlowTest.php`:
 
@@ -154,26 +210,48 @@ Workflows remember who saved them last as an e-mail address in `created_by` and 
 <?php
 
 use App\Models\Workspace;
-use Illuminate\Support\Facades\Schema;
+use Packstub\Features\Exceptions\FeaturesException;
 use Packstub\Features\Facades\Features;
+use Packstub\Flow\Exceptions\WorkflowException;
 use Packstub\Flow\FlowPlugin;
+use Packstub\Flow\Models\Secret;
 use Packstub\Flow\Models\Workflow;
+use Packstub\Flow\Models\WorkflowRun;
+use Packstub\Flow\Models\WorkflowWait;
+use Packstub\Flow\Nodes\Actions\CreateRecord;
+use Packstub\Flow\Nodes\Actions\FindRecords;
+use Packstub\Flow\Nodes\Actions\ForEachLoop;
+use Packstub\Flow\Nodes\Actions\UpdateRecord;
+use Packstub\Flow\Nodes\Actions\WriteLog;
+use Packstub\Flow\Nodes\Triggers\Manual;
+use Packstub\Flow\Support\WorkflowTransfer;
 
 use function Pest\Laravel\actingAs;
 
-function workflowFor(Workspace $workspace): Workflow
+function workflowFor(?Workspace $workspace, string $name = 'Welcome'): Workflow
 {
     return Workflow::query()->withoutGlobalScopes()->forceCreate([
-        'name' => 'Welcome',
-        'tenant_type' => $workspace->getMorphClass(),
-        'tenant_id' => (string) $workspace->id,
+        'name' => $name,
+        'tenant_type' => $workspace?->getMorphClass(),
+        'tenant_id' => $workspace ? (string) $workspace->id : null,
     ]);
+}
+
+/** A two-node workflow document: Manual, then the given action. */
+function workflowUsing(string $action): array
+{
+    $node = fn (string $id, string $type, string $class): array => ['id' => $id, 'type' => $type, 'position' => ['x' => 0, 'y' => 0], 'data' => ['identifier' => $class, 'label' => $id, 'description' => null, 'config' => []]];
+
+    return ['name' => 'Imported', 'definition' => [
+        'nodes' => [$node('t', 'trigger', Manual::class), $node('a', 'action', $action)],
+        'edges' => [['id' => 'e', 'source' => 't', 'target' => 'a']],
+    ]];
 }
 
 it('shows each workspace its own workflows', function (string $role) {
     $workspace = workspace('pro');
     workflowFor($workspace);
-    workflowFor(workspace('pro'))->forceFill(['name' => 'Not yours'])->save();
+    workflowFor(workspace('pro'), 'Not yours');
 
     actingAs(memberOf($workspace, $role))
         ->get("/app/{$workspace->slug}/workflows")
@@ -196,15 +274,47 @@ it('takes the number of workflows from the plan', function (string $plan, ?int $
     ['business', null],
 ]);
 
-it('deletes the workflows of a deleted workspace, and nothing of another', function () {
+it('holds the plan limit however a workflow is made', function () {
+    $workspace = workspace('free');
+    $first = workflowFor($workspace);
+    inWorkspace($workspace);
+
+    expect(fn () => $first->replicate()->save())->toThrow(FeaturesException::class)
+        ->and(fn () => WorkflowTransfer::import(workflowUsing(WriteLog::class), ['tenant_type' => 'workspace', 'tenant_id' => (string) $workspace->id]))->toThrow(FeaturesException::class)
+        ->and(Workflow::query()->withoutGlobalScopes()->count())->toBe(1);
+});
+
+it('refuses a workflow with a node that can touch any model', function (string $node) {
+    inWorkspace(workspace('pro'));
+
+    expect(fn () => WorkflowTransfer::import(workflowUsing($node)))->toThrow(WorkflowException::class);
+})->with([FindRecords::class, CreateRecord::class, UpdateRecord::class, ForEachLoop::class]);
+
+it('deletes the workflows, runs, waits and secrets of a deleted workspace, and nothing of another', function () {
     $workspace = workspace();
     workflowFor($workspace);
     $theirs = workflowFor(workspace());
+    // A global workflow's run for this workspace, waiting for an approval, and a secret.
+    $run = WorkflowRun::query()->forceCreate(['workflow_id' => workflowFor(null, 'Global')->id, 'status' => 'delayed', 'tenant_type' => 'workspace', 'tenant_id' => (string) $workspace->id]);
+    WorkflowWait::query()->forceCreate(['workflow_id' => $run->workflow_id, 'run_id' => $run->id, 'tenant_type' => 'workspace', 'tenant_id' => (string) $workspace->id, 'node_id' => 'a', 'type' => 'approval', 'token' => str_repeat('a', 64)]);
+    Secret::query()->withoutGlobalScopes()->forceCreate(['tenant_type' => 'workspace', 'tenant_id' => (string) $workspace->id, 'key' => 'slack', 'value' => 'xoxb-secret']);
 
     $workspace->delete();
 
-    expect(Workflow::query()->withoutGlobalScopes()->pluck('id')->all())->toBe([$theirs->id])
-        ->and(Schema::hasTable('flow_workflow_runs'))->toBeTrue();
+    expect(rowsLeftOf($workspace))->toBe([])
+        ->and(Workflow::query()->withoutGlobalScopes()->whereKey($theirs->id)->exists())->toBeTrue();
+});
+
+it('puts the workflows in the workspace export, without secret values', function () {
+    $workspace = workspace();
+    workflowFor($workspace);
+    Secret::query()->withoutGlobalScopes()->forceCreate(['tenant_type' => 'workspace', 'tenant_id' => (string) $workspace->id, 'key' => 'slack', 'value' => 'xoxb-secret']);
+
+    $export = App\Support\DataExport::forWorkspace($workspace);
+
+    expect(collect($export['workflows'])->pluck('name')->all())->toBe(['Welcome'])
+        ->and($export['workflow_secrets'])->toBe(['slack'])
+        ->and(json_encode($export['workflow_secrets']))->not->toContain('xoxb');
 });
 ```
 
@@ -219,7 +329,7 @@ Keep Flow's tables central, with the published migration among the central ones:
 
 ## Removing it
 
-Delete the plugin lines and imports from `app/Filament/Plugins.php`, `HasWorkflows` from `Project`, the `workflows` feature, plan values and `usage()` line, `PACKSTUB_FLOW_TENANT_RELATIONSHIP`, `app/Listeners/DeleteWorkspaceWorkflows.php`, `tests/Feature/Modules/FlowTest.php` and the seven lines in `centralTables()`, then:
+Delete the plugin lines and imports from `app/Filament/Plugins.php`, `HasWorkflows` from `Project`, the `Workflow::creating()` hook, the two export lines, the `workflows` feature, plan values and `usage()` line, `PACKSTUB_FLOW_TENANT_RELATIONSHIP`, `app/Listeners/DeleteWorkspaceWorkflows.php`, `tests/Feature/Modules/FlowTest.php` and the seven lines in `centralTables()`, then:
 
 ```bash
 composer remove packstub/filament-flow

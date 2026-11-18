@@ -26,7 +26,8 @@
  * An anchor is one or more strings separated by "|": each is looked for from
  * the line after the previous one. An inserted block takes the indentation of
  * the line above it (`before`), of the anchor's line (`after`; of the next
- * line when the anchor opens a block), or of the line it replaces (`replace`).
+ * line when the anchor opens a block), or of the line it replaces (`replace`);
+ * `indent=12` sets it to 12 spaces.
  */
 if ($argc !== 3) {
     fwrite(STDERR, "Usage: php scripts/apply-recipe.php <recipe.md> <directory>\n");
@@ -216,6 +217,10 @@ function insert(string $path, string $block, array $directives): void
         'after' => preg_match('/[\[({]\s*$/', $lines[$at]) ? (nextFilledLine($lines, $at + 1) ?? $at) : $at,
     };
     preg_match('/^\s*/', $lines[$like], $indent);
+
+    if (isset($directives['indent'])) {
+        $indent = [str_repeat(' ', (int) $directives['indent'])];
+    }
 
     $replaced = 0;
 
