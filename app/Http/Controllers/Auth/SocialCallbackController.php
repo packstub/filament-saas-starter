@@ -12,6 +12,7 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Laravel\Socialite\Contracts\User as ProviderUser;
 use Laravel\Socialite\Facades\Socialite;
 use Packstub\AccountSwitcher\Facades\AccountSwitcher;
@@ -81,14 +82,15 @@ class SocialCallbackController
         }
 
         if (! $user) {
-            $user = DB::transaction(function () use ($account, $email): User {
-                $user = User::create(['name' => $account->getName() ?: $account->getNickname() ?: $email, 'email' => $email]);
+            // The user and their connected account together: never a user they cannot sign in as.
+            $user = DB::transaction(function () use ($account, $email, $provider): User {
+                $name = Str::limit($account->getName() ?: $account->getNickname() ?: $email, 255, '');
+                $user = User::create(['name' => $name, 'email' => $email]);
                 $user->forceFill(['email_verified_at' => now()])->save();
+                $this->link($user, $provider, $account);
 
                 return $user;
             });
-
-            $this->link($user, $provider, $account);
 
             // Creates their first workspace, or joins the one an invitation brought them to.
             event(new Registered($user));
@@ -109,7 +111,8 @@ class SocialCallbackController
         $label = SocialLogin::PROVIDERS[$provider];
         $owner = SocialAccount::query()->where('provider', $provider)->where('provider_id', $account->getId())->value('user_id');
 
-        if ($owner !== null && $owner !== $user->getKey()) {
+        // As strings: some database drivers return keys as strings.
+        if ($owner !== null && (string) $owner !== (string) $user->getKey()) {
             Notification::make()->danger()->title("That {$label} account is already connected to another user.")->send();
         } else {
             $this->link($user, $provider, $account);
@@ -150,6 +153,8 @@ class SocialCallbackController
 
         $verified = match ($provider) {
             'google' => ($account->getRaw()['email_verified'] ?? false) === true,
+            // Only with the `user:email` scope (Socialite's default for GitHub): Socialite then asks
+            // GitHub for the primary address, and only once it is verified. Keep that scope if you add others.
             'github' => true,
             default => false,
         };

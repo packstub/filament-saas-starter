@@ -301,3 +301,22 @@ it('starts a new session on signing in, so an ID planted before cannot be reused
     assertAuthenticatedAs($user);
     expect(session()->getId())->not->toBe($before);
 });
+
+it('cuts a very long name from the provider to fit', function () {
+    providerReturns('google', 'g-1', 'nina@example.com', name: str_repeat('N', 300));
+
+    get('/auth/google/callback');
+
+    expect(mb_strlen(User::sole()->name))->toBe(255);
+});
+
+it('reconnects an account the user already has without calling it someone else\'s', function () {
+    $user = User::factory()->create();
+    $user->socialAccounts()->create(['provider' => 'github', 'provider_id' => '42']);
+    actingAs($user);
+    providerReturns('github', '42', 'nina@github.test');
+
+    get('/auth/github/callback');
+
+    expect($user->socialAccounts()->sole()->email)->toBe('nina@github.test');
+});
