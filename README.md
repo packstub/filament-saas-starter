@@ -424,7 +424,7 @@ The kit leaves out what only some products need. Each of these is a short recipe
 | [Workflows with Flow](docs/modules/flow.md) | Automations per workspace, with the number of workflows as a plan limit |
 | [Forms with Form Builder](docs/modules/form-builder.md) | Forms per workspace, hosted or embedded, with the number of forms as a plan limit |
 | [A Projects board with Kanban](docs/modules/kanban.md) | The Projects resource as a board by status (a beta package) |
-| [An AI assistant with credits](docs/modules/ai.md) | A chat assistant per workspace, paid for by monthly AI credits from the plan (needs the next releases of the AI packages) |
+| [An AI assistant with credits](docs/modules/ai.md) | A chat assistant per workspace, paid for by monthly AI credits from the plan |
 
 Four things in the kit keep the recipes short: the plugin lists in `app/Filament/Plugins.php`, the `App\Events\WorkspaceDeleting` and `App\Events\AccountDeleting` events a module cleans up in, the one-value-per-line plans in `config/packstub-features.php`, and `TableRulesTest`, which makes each module say where its tables live.
 
