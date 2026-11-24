@@ -30,7 +30,8 @@ function exampleVariables(): array
 }
 
 /**
- * What the config files read with env(): the kit's, and the framework's and Cashier's defaults it does not publish.
+ * What the config files read with env(): the kit's, and the defaults it does not publish (the framework's, Cashier's,
+ * and those of the Packstub plugins a module recipe adds).
  *
  * @return list<string>
  */
@@ -39,6 +40,7 @@ function variablesReadByConfig(): array
     $files = collect(File::files(config_path()))
         ->merge(File::glob(base_path('vendor/laravel/framework/config/*.php')))
         ->merge(File::glob(base_path('vendor/laravel/cashier/config/*.php')))
+        ->merge(File::glob(base_path('vendor/packstub/*/config/*.php')))
         ->map(fn ($file): string => File::get((string) $file))
         ->implode("\n");
 

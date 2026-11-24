@@ -19,7 +19,7 @@ php artisan migrate
 
 The migration adds seven tables: `flow_workflows`, `flow_workflow_triggers`, `flow_workflow_versions`, `flow_workflow_runs`, `flow_workflow_steps`, `flow_workflow_waits` and `flow_secrets`.
 
-Tell Flow how to find the workspace of a record, so a project created from the API (outside the panel) runs that workspace's workflows. In `.env`, and in `.env.example` for the next person:
+Tell Flow how to find the workspace of a record, so a project created from the API (outside the panel) runs that workspace's workflows. In `.env`, in `.env.example` for the next person,
 
 ```dotenv append=.env
 # Flow: a record's workspace is its `workspace` relationship.
@@ -29,6 +29,12 @@ PACKSTUB_FLOW_TENANT_RELATIONSHIP=workspace
 ```dotenv append=.env.example
 # Flow: a record's workspace is its `workspace` relationship.
 PACKSTUB_FLOW_TENANT_RELATIONSHIP=workspace
+```
+
+and in the Plugins table of `docs/deploy/environment.md`, the list people set production from:
+
+```markdown in=docs/deploy/environment.md after="## Plugins|SANCTUM_TOKEN_PREFIX"
+| `PACKSTUB_FLOW_TENANT_RELATIONSHIP` | `workspace` | How Flow finds a record's workspace, so a project created outside the panel (from the API) runs that workspace's workflows. |
 ```
 
 Without it in production, a project created outside the panel starts only global workflows, never the workspace's.
@@ -336,7 +342,7 @@ Keep Flow's tables central, with the published migration among the central ones:
 
 ## Removing it
 
-Delete the plugin lines and imports from `app/Filament/Plugins.php`, `HasWorkflows` from `Project`, the `Workflow::creating()` hook, the two export lines, the `workflows` feature, plan values and `usage()` line, `PACKSTUB_FLOW_TENANT_RELATIONSHIP`, `app/Listeners/DeleteWorkspaceWorkflows.php`, `tests/Feature/Modules/FlowTest.php` and the seven lines in `centralTables()`, then:
+Delete the plugin lines and imports from `app/Filament/Plugins.php`, `HasWorkflows` from `Project`, the `Workflow::creating()` hook, the two export lines, the `workflows` feature, plan values and `usage()` line, `PACKSTUB_FLOW_TENANT_RELATIONSHIP` (and its row in `docs/deploy/environment.md`), `app/Listeners/DeleteWorkspaceWorkflows.php`, `tests/Feature/Modules/FlowTest.php` and the seven lines in `centralTables()`, then:
 
 ```bash
 composer remove packstub/filament-flow
