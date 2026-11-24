@@ -24,7 +24,7 @@ php artisan migrate
 
 Both packages run their migrations from `vendor`: the chat tables (`agent_conversations`, `agent_turns`…) and the ledger (`credit_wallets`, `credit_grants`, `credit_holds`, `credit_transactions`, `credit_allocations`).
 
-The engine also serves the tools to Claude Code, Cursor and other MCP clients. The kit's API tokens belong to workspaces, while MCP tokens belong to people, so keep that off until you want it (see [Going further](#going-further)). In `.env`, and `.env.example`:
+The engine also serves the tools to Claude Code, Cursor and other MCP clients. The kit's API tokens belong to workspaces, while MCP tokens belong to people, so keep that off until you want it (see [Going further](#going-further)). In `.env`, in `.env.example`,
 
 ```dotenv append=.env
 # Agents: the in-panel chat only; no MCP endpoint.
@@ -34,6 +34,12 @@ AGENT_MCP_ENABLED=false
 ```dotenv append=.env.example
 # Agents: the in-panel chat only; no MCP endpoint.
 AGENT_MCP_ENABLED=false
+```
+
+and in the Plugins table of `docs/deploy/environment.md`:
+
+```markdown in=docs/deploy/environment.md after="## Plugins|SANCTUM_TOKEN_PREFIX"
+| `AGENT_MCP_ENABLED` | `false` | Keeps Agents' MCP endpoint off; the chat in the app panel works without it. |
 ```
 
 ## 2. The assistant and its first tool
