@@ -6,13 +6,12 @@ All notable changes to `packstub/filament-saas-starter` are documented in this f
 
 ## 1.0.0
 
-**Upgrading:** from a copy made before monthly and yearly prices, rename `STRIPE_PRICE_PRO` and `STRIPE_PRICE_BUSINESS` in `.env` to `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_BUSINESS_MONTHLY` (the old names are still read as the monthly prices), and run `php artisan migrate`.
-
 First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Filament 5 to start your product from, built on Filament Teams, Filament Features, Filament Account Switcher and Laravel Cashier.
 
+- **Upgrading:** a project created from the template before 1.0.0 renames `STRIPE_PRICE_PRO` and `STRIPE_PRICE_BUSINESS` in `.env` to `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_BUSINESS_MONTHLY` (the old names still work as the monthly prices) and runs `php artisan migrate`
+- **Upgrading:** a project created from the template before 1.0.0 needs `users.password` made nullable before using Google and GitHub sign-up; the README shows the one-line migration
 - Sign-up, log-in, password reset and a profile page, with e-mail verification before the panel opens
 - Sign in and sign up with Google and GitHub once their keys are set, linked only to verified addresses, with connected accounts on the Profile page
-- **Upgrading:** a project created from the template before 1.0.0 needs `users.password` made nullable before using Google and GitHub sign-up; the README shows the one-line migration
 - Two-factor authentication with an authenticator app: optional for customers, required for the admin panel
 - Password rules set in one place, longer and checked against known leaks in production
 - Workspaces as tenants: one per sign-up, as many as a person likes, everything in the panel scoped to the current one
@@ -37,7 +36,7 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - Delete account on the Profile page, behind the password; workspaces only that person used go with it, and audit logs keep what happened without their name or e-mail address
 - Workspace logos and profile pictures, shown in the workspace and user menus, stored per workspace or person on a configurable disk (local or S3) and removed with them
 - Branded e-mails: one layout and theme for every e-mail, with the workspace's name and logo on its invitations, and notices for a failed payment, a deleted workspace and a deleted account
-- The kit's text in translation files, with a complete Spanish translation, a Language choice on the Profile page that the e-mails follow, a language switch on the home page, and a test that keeps every language complete
+- The kit's text in translation files (`lang/<locale>/ui_*.php`, so a package's `__('Workspace')` never loads one on a Mac), with a complete Spanish translation, a Language choice on the Profile page that the e-mails follow, a language switch on the home page, and a test that keeps every language complete
 - Download your data (Profile page) and Export workspace data (Workspace settings, owners), each as one JSON file
 - After Transfer ownership, Stripe's receipts and billing e-mails go to the new owner
 - API tokens per workspace, with abilities and an expiry, created and revoked by owners and admins on an API tokens page

@@ -27,7 +27,7 @@ class WorkspaceResource extends Resource
 {
     public static function getNavigationGroup(): ?string
     {
-        return __('app.navigation.customers');
+        return __('ui_app.navigation.customers');
     }
 
     protected static ?string $model = Workspace::class;
@@ -36,22 +36,22 @@ class WorkspaceResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return __('admin.workspaces.model');
+        return __('ui_admin.workspaces.model');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('admin.workspaces.plural_model');
+        return __('ui_admin.workspaces.plural_model');
     }
 
     public static function getTitleCaseModelLabel(): string
     {
-        return __('admin.workspaces.title');
+        return __('ui_admin.workspaces.title');
     }
 
     public static function getTitleCasePluralModelLabel(): string
     {
-        return __('admin.workspaces.plural_title');
+        return __('ui_admin.workspaces.plural_title');
     }
 
     public static function getEloquentQuery(): Builder
@@ -65,44 +65,44 @@ class WorkspaceResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label(__('admin.workspaces.columns.name'))
+                    ->label(__('ui_admin.workspaces.columns.name'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('plan')
-                    ->label(__('admin.workspaces.columns.plan'))
+                    ->label(__('ui_admin.workspaces.columns.plan'))
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => Features::planDefinition($state)?->label ?? $state),
                 TextColumn::make('subscription')
-                    ->label(__('admin.workspaces.columns.subscription'))
+                    ->label(__('ui_admin.workspaces.columns.subscription'))
                     ->state(fn (Workspace $record): ?string => $record->currentSubscription()?->stripe_status)
-                    ->placeholder(__('admin.workspaces.columns.none')),
+                    ->placeholder(__('ui_admin.workspaces.columns.none')),
                 TextColumn::make('members_count')
-                    ->label(__('admin.workspaces.columns.members')),
+                    ->label(__('ui_admin.workspaces.columns.members')),
                 TextColumn::make('created_at')
-                    ->label(__('admin.workspaces.columns.created'))
+                    ->label(__('ui_admin.workspaces.columns.created'))
                     ->date()
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
             ->recordActions([
                 Action::make('activity')
-                    ->label(__('admin.workspaces.actions.activity'))
+                    ->label(__('ui_admin.workspaces.actions.activity'))
                     ->icon(Heroicon::OutlinedClipboardDocumentList)
                     ->color('gray')
                     ->url(fn (Workspace $record): string => AuditEventResource::getUrl('index', ['filters' => ['workspace' => ['value' => $record->getKey()]]])),
                 Action::make('changePlan')
-                    ->label(__('admin.workspaces.actions.change_plan'))
+                    ->label(__('ui_admin.workspaces.actions.change_plan'))
                     ->icon(Heroicon::OutlinedSparkles)
                     ->fillForm(fn (Workspace $record): array => ['plan' => $record->plan])
                     ->schema([
                         Select::make('plan')
-                            ->label(__('admin.workspaces.fields.plan'))
+                            ->label(__('ui_admin.workspaces.fields.plan'))
                             ->options(fn (): array => array_map(fn (Plan $plan): string => $plan->label, Features::plans()))
                             ->required()
-                            ->helperText(__('admin.workspaces.fields.plan_help')),
+                            ->helperText(__('ui_admin.workspaces.fields.plan_help')),
                     ])
                     ->action(fn (Workspace $record, array $data) => $record->changePlan($data['plan']))
-                    ->successNotificationTitle(__('admin.workspaces.plan_changed')),
+                    ->successNotificationTitle(__('ui_admin.workspaces.plan_changed')),
             ]);
     }
 

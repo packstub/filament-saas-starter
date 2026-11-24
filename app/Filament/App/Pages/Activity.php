@@ -25,19 +25,19 @@ class Activity extends Page implements HasTable
 {
     public static function getNavigationGroup(): ?string
     {
-        return __('app.navigation.workspace');
+        return __('ui_app.navigation.workspace');
     }
 
     use InteractsWithTable;
 
     public static function getNavigationLabel(): string
     {
-        return __('activity.title');
+        return __('ui_activity.title');
     }
 
     public function getTitle(): string
     {
-        return __('activity.title');
+        return __('ui_activity.title');
     }
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedClipboardDocumentList;
@@ -61,28 +61,28 @@ class Activity extends Page implements HasTable
             ->query(fn () => AuditEvent::query()->where('workspace_id', Filament::getTenant()->getKey()))
             ->columns([
                 TextColumn::make('event')
-                    ->label(__('activity.columns.event'))
+                    ->label(__('ui_activity.columns.event'))
                     ->badge(),
                 TextColumn::make('description')
-                    ->label(__('activity.columns.description'))
+                    ->label(__('ui_activity.columns.description'))
                     ->state(fn (AuditEvent $record): string => $record->description())
                     ->wrap(),
                 TextColumn::make('actor_name')
-                    ->label(__('activity.columns.by'))
+                    ->label(__('ui_activity.columns.by'))
                     ->state(fn (AuditEvent $record): string => $record->actorLabel())
                     ->searchable(),
                 TextColumn::make('created_at')
-                    ->label(__('activity.columns.when'))
+                    ->label(__('ui_activity.columns.when'))
                     ->since()
                     ->dateTimeTooltip()
                     ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('event')
-                    ->label(__('activity.columns.event'))
+                    ->label(__('ui_activity.columns.event'))
                     ->options(AuditEventType::class),
             ])
             ->defaultSort('created_at', 'desc')
-            ->emptyStateHeading(__('activity.empty'));
+            ->emptyStateHeading(__('ui_activity.empty'));
     }
 }

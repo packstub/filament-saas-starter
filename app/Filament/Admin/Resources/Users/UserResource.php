@@ -21,7 +21,7 @@ class UserResource extends Resource
 {
     public static function getNavigationGroup(): ?string
     {
-        return __('app.navigation.customers');
+        return __('ui_app.navigation.customers');
     }
 
     protected static ?string $model = User::class;
@@ -30,22 +30,22 @@ class UserResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return __('admin.users.model');
+        return __('ui_admin.users.model');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('admin.users.plural_model');
+        return __('ui_admin.users.plural_model');
     }
 
     public static function getTitleCaseModelLabel(): string
     {
-        return __('admin.users.title');
+        return __('ui_admin.users.title');
     }
 
     public static function getTitleCasePluralModelLabel(): string
     {
-        return __('admin.users.plural_title');
+        return __('ui_admin.users.plural_title');
     }
 
     /**
@@ -62,19 +62,19 @@ class UserResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label(__('admin.users.columns.name'))
+                    ->label(__('ui_admin.users.columns.name'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('email')
-                    ->label(__('admin.users.columns.email'))
+                    ->label(__('ui_admin.users.columns.email'))
                     ->searchable(),
                 TextColumn::make('joined_teams_count')
-                    ->label(__('admin.users.columns.workspaces')),
+                    ->label(__('ui_admin.users.columns.workspaces')),
                 IconColumn::make('is_admin')
-                    ->label(__('admin.users.columns.admin'))
+                    ->label(__('ui_admin.users.columns.admin'))
                     ->boolean(),
                 TextColumn::make('created_at')
-                    ->label(__('admin.users.columns.signed_up'))
+                    ->label(__('ui_admin.users.columns.signed_up'))
                     ->date()
                     ->sortable(),
             ])

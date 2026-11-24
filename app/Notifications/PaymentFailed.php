@@ -33,7 +33,7 @@ class PaymentFailed extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(__('mail.payment_failed.subject', ['workspace' => $this->workspace->name]))
+            ->subject(__('ui_mail.payment_failed.subject', ['workspace' => $this->workspace->name]))
             ->markdown('mail.payment-failed', [
                 'workspace' => $this->workspace->name,
                 'logo' => $this->workspace->getFilamentAvatarUrl(),
@@ -49,10 +49,10 @@ class PaymentFailed extends Notification implements ShouldQueue
         return FilamentNotification::make()
             ->danger()
             // Filament renders the title as (sanitized) HTML: the name is text.
-            ->title(__('mail.payment_failed.database_title', ['workspace' => e($this->workspace->name)]))
-            ->body(__('mail.payment_failed.database_body'))
+            ->title(__('ui_mail.payment_failed.database_title', ['workspace' => e($this->workspace->name)]))
+            ->body(__('ui_mail.payment_failed.database_body'))
             ->actions([
-                Action::make('billing')->label(__('mail.payment_failed.database_action'))->url($this->billingUrl())->markAsRead(),
+                Action::make('billing')->label(__('ui_mail.payment_failed.database_action'))->url($this->billingUrl())->markAsRead(),
             ])
             ->getDatabaseMessage();
     }

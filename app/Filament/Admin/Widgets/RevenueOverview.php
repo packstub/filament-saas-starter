@@ -24,17 +24,17 @@ class RevenueOverview extends StatsOverviewWidget
         $rate = RevenueMetrics::churnRate();
 
         return [
-            Stat::make(__('admin.revenue.mrr'), RevenueMetrics::format($mrr))
-                ->description(__('admin.revenue.per_year', ['amount' => RevenueMetrics::format($mrr * 12)]))
+            Stat::make(__('ui_admin.revenue.mrr'), RevenueMetrics::format($mrr))
+                ->description(__('ui_admin.revenue.per_year', ['amount' => RevenueMetrics::format($mrr * 12)]))
                 ->icon(Heroicon::OutlinedBanknotes),
-            Stat::make(__('admin.revenue.subscriptions'), RevenueMetrics::activeSubscriptions())
-                ->description(__('admin.revenue.subscriptions_description'))
+            Stat::make(__('ui_admin.revenue.subscriptions'), RevenueMetrics::activeSubscriptions())
+                ->description(__('ui_admin.revenue.subscriptions_description'))
                 ->icon(Heroicon::OutlinedCreditCard),
-            Stat::make(__('admin.revenue.trials'), RevenueMetrics::trials())
-                ->description(__('admin.revenue.trials_description'))
+            Stat::make(__('ui_admin.revenue.trials'), RevenueMetrics::trials())
+                ->description(__('ui_admin.revenue.trials_description'))
                 ->icon(Heroicon::OutlinedGift),
-            Stat::make(__('admin.revenue.churned'), RevenueMetrics::churned())
-                ->description($rate === null ? __('admin.revenue.no_subscriptions') : __('admin.revenue.churn_rate', ['rate' => $rate]))
+            Stat::make(__('ui_admin.revenue.churned'), RevenueMetrics::churned())
+                ->description($rate === null ? __('ui_admin.revenue.no_subscriptions') : __('ui_admin.revenue.churn_rate', ['rate' => $rate]))
                 ->descriptionColor($rate ? 'danger' : 'gray')
                 ->icon(Heroicon::OutlinedArrowTrendingDown),
         ];

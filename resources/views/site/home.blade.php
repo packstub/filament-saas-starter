@@ -8,20 +8,20 @@
     $registerUrl = filament()->getPanel('app')->getRegistrationUrl();
 
     $features = [
-        ['title' => __('site.home.features.items.workspace.title'), 'body' => __('site.home.features.items.workspace.body'), 'icon' => 'M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21'],
-        ['title' => __('site.home.features.items.team.title'), 'body' => __('site.home.features.items.team.body'), 'icon' => 'M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z'],
-        ['title' => __('site.home.features.items.plans.title'), 'body' => __('site.home.features.items.plans.body'), 'icon' => 'M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941'],
-        ['title' => __('site.home.features.items.security.title'), 'body' => __('site.home.features.items.security.body'), 'icon' => 'M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z'],
-        ['title' => __('site.home.features.items.activity.title'), 'body' => __('site.home.features.items.activity.body'), 'icon' => 'M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z'],
-        ['title' => __('site.home.features.items.data.title'), 'body' => __('site.home.features.items.data.body'), 'icon' => 'M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3'],
+        ['title' => __('ui_site.home.features.items.workspace.title'), 'body' => __('ui_site.home.features.items.workspace.body'), 'icon' => 'M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21'],
+        ['title' => __('ui_site.home.features.items.team.title'), 'body' => __('ui_site.home.features.items.team.body'), 'icon' => 'M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z'],
+        ['title' => __('ui_site.home.features.items.plans.title'), 'body' => __('ui_site.home.features.items.plans.body'), 'icon' => 'M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941'],
+        ['title' => __('ui_site.home.features.items.security.title'), 'body' => __('ui_site.home.features.items.security.body'), 'icon' => 'M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z'],
+        ['title' => __('ui_site.home.features.items.activity.title'), 'body' => __('ui_site.home.features.items.activity.body'), 'icon' => 'M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z'],
+        ['title' => __('ui_site.home.features.items.data.title'), 'body' => __('ui_site.home.features.items.data.body'), 'icon' => 'M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3'],
     ];
 
     $faqs = [
-        ['q' => __('site.home.faq.items.free.q'), 'a' => $trialDays ? __('site.home.faq.items.free.a_trial', ['days' => $trialDays]) : __('site.home.faq.items.free.a')],
-        ['q' => __('site.home.faq.items.billed.q'), 'a' => __('site.home.faq.items.billed.a')],
-        ['q' => __('site.home.faq.items.change.q'), 'a' => __('site.home.faq.items.change.a')],
-        ['q' => __('site.home.faq.items.cancel.q'), 'a' => __('site.home.faq.items.cancel.a')],
-        ['q' => __('site.home.faq.items.data.q'), 'a' => __('site.home.faq.items.data.a')],
+        ['q' => __('ui_site.home.faq.items.free.q'), 'a' => $trialDays ? __('ui_site.home.faq.items.free.a_trial', ['days' => $trialDays]) : __('ui_site.home.faq.items.free.a')],
+        ['q' => __('ui_site.home.faq.items.billed.q'), 'a' => __('ui_site.home.faq.items.billed.a')],
+        ['q' => __('ui_site.home.faq.items.change.q'), 'a' => __('ui_site.home.faq.items.change.a')],
+        ['q' => __('ui_site.home.faq.items.cancel.q'), 'a' => __('ui_site.home.faq.items.cancel.a')],
+        ['q' => __('ui_site.home.faq.items.data.q'), 'a' => __('ui_site.home.faq.items.data.a')],
     ];
 
     // The interval shown first on the pricing cards; the switch shows the others.
@@ -46,7 +46,7 @@
             <div>
                 @if ($trialDays)
                     <p class="mb-6 inline-flex items-center gap-2 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700 dark:border-indigo-900 dark:bg-indigo-950 dark:text-indigo-300">
-                        {{ __('site.home.trial_badge', ['days' => $trialDays]) }}
+                        {{ __('ui_site.home.trial_badge', ['days' => $trialDays]) }}
                     </p>
                 @endif
 
@@ -60,10 +60,10 @@
 
                 <div class="mt-10 flex flex-wrap items-center gap-4">
                     <a href="{{ $registerUrl }}" class="rounded-lg bg-indigo-600 px-5 py-3 font-medium text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-                        {{ __('site.home.create_workspace') }}
+                        {{ __('ui_site.home.create_workspace') }}
                     </a>
                     <a href="#pricing" class="rounded-lg px-5 py-3 font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">
-                        {{ __('site.home.see_pricing') }} <span aria-hidden="true">&rarr;</span>
+                        {{ __('ui_site.home.see_pricing') }} <span aria-hidden="true">&rarr;</span>
                     </a>
                 </div>
             </div>
@@ -76,11 +76,11 @@
                             <span class="grid size-7 place-items-center rounded-md bg-indigo-600 text-xs font-bold text-white">A</span>
                             <span class="text-sm font-semibold">Acme</span>
                         </div>
-                        <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">{{ __('site.home.mock.plan') }}</span>
+                        <span class="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">{{ __('ui_site.home.mock.plan') }}</span>
                     </div>
 
                     <div class="mt-5 grid grid-cols-3 gap-3">
-                        @foreach ([[__('site.home.mock.projects'), __('site.home.mock.of', ['used' => 12, 'total' => 50])], [__('site.home.mock.seats'), __('site.home.mock.of', ['used' => 4, 'total' => 10])], [__('site.home.mock.this_week'), '+3']] as [$label, $value])
+                        @foreach ([[__('ui_site.home.mock.projects'), __('ui_site.home.mock.of', ['used' => 12, 'total' => 50])], [__('ui_site.home.mock.seats'), __('ui_site.home.mock.of', ['used' => 4, 'total' => 10])], [__('ui_site.home.mock.this_week'), '+3']] as [$label, $value])
                             <div class="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
                                 <div class="text-xs text-slate-500 dark:text-slate-400">{{ $label }}</div>
                                 <div class="mt-1 text-base font-semibold whitespace-nowrap sm:text-lg">{{ $value }}</div>
@@ -89,7 +89,7 @@
                     </div>
 
                     <ul class="mt-5 divide-y divide-slate-200 rounded-lg border border-slate-200 bg-white text-sm dark:divide-slate-800 dark:border-slate-800 dark:bg-slate-900">
-                        @foreach ([[__('site.home.mock.project_names.website'), __('site.home.mock.status.active'), 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'], [__('site.home.mock.project_names.mobile'), __('site.home.mock.status.active'), 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'], [__('site.home.mock.project_names.campaign'), __('site.home.mock.status.on_hold'), 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'], [__('site.home.mock.project_names.move'), __('site.home.mock.status.archived'), 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300']] as [$name, $status, $badge])
+                        @foreach ([[__('ui_site.home.mock.project_names.website'), __('ui_site.home.mock.status.active'), 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'], [__('ui_site.home.mock.project_names.mobile'), __('ui_site.home.mock.status.active'), 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'], [__('ui_site.home.mock.project_names.campaign'), __('ui_site.home.mock.status.on_hold'), 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'], [__('ui_site.home.mock.project_names.move'), __('ui_site.home.mock.status.archived'), 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300']] as [$name, $status, $badge])
                             <li class="flex items-center justify-between px-4 py-3">
                                 <span>{{ $name }}</span>
                                 <span class="rounded-full px-2.5 py-0.5 text-xs font-medium {{ $badge }}">{{ $status }}</span>
@@ -105,8 +105,8 @@
     <section id="features" aria-labelledby="features-heading" class="scroll-mt-20 border-t border-slate-200 bg-slate-50 py-24 dark:border-slate-800 dark:bg-slate-900/40">
         <div class="mx-auto w-full max-w-6xl px-6">
             <div class="max-w-2xl">
-                <h2 id="features-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">{{ __('site.home.features.heading') }}</h2>
-                <p class="mt-4 text-lg text-slate-600 dark:text-slate-300">{{ __('site.home.features.intro') }}</p>
+                <h2 id="features-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">{{ __('ui_site.home.features.heading') }}</h2>
+                <p class="mt-4 text-lg text-slate-600 dark:text-slate-300">{{ __('ui_site.home.features.intro') }}</p>
             </div>
 
             <ul class="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -127,23 +127,23 @@
     <section id="pricing" aria-labelledby="pricing-heading" class="group/pricing scroll-mt-20 py-24">
         <div class="mx-auto w-full max-w-6xl px-6">
             <div class="mx-auto max-w-2xl text-center">
-                <h2 id="pricing-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">{{ __('site.home.pricing.heading') }}</h2>
+                <h2 id="pricing-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">{{ __('ui_site.home.pricing.heading') }}</h2>
                 <p class="mt-4 text-lg text-slate-600 dark:text-slate-300">
-                    {{ __('site.home.pricing.intro') }}
+                    {{ __('ui_site.home.pricing.intro') }}
                     @if ($trialDays)
-                        {{ __('site.home.pricing.trial', ['days' => $trialDays]) }}
+                        {{ __('ui_site.home.pricing.trial', ['days' => $trialDays]) }}
                     @endif
                 </p>
             </div>
 
             @if (count($intervals) > 1)
                 <fieldset class="mt-10 flex justify-center">
-                    <legend class="sr-only">{{ __('site.home.pricing.interval') }}</legend>
+                    <legend class="sr-only">{{ __('ui_site.home.pricing.interval') }}</legend>
                     <div class="inline-flex rounded-full border border-slate-200 bg-slate-100 p-1 text-sm font-medium dark:border-slate-800 dark:bg-slate-900">
                         @foreach ($intervals as $interval => $label)
                             <label class="cursor-pointer rounded-full px-4 py-1.5 text-slate-600 has-checked:bg-white has-checked:text-slate-900 has-checked:shadow-sm has-focus-visible:outline-2 has-focus-visible:outline-indigo-600 dark:text-slate-300 dark:has-checked:bg-slate-700 dark:has-checked:text-white">
                                 <input type="radio" name="interval" value="{{ $interval }}" id="interval-{{ $interval }}" class="sr-only" @checked($interval === $defaultInterval)>
-                                {{ __('site.home.pricing.intervals.'.$interval) }}
+                                {{ __('ui_site.home.pricing.intervals.'.$interval) }}
                             </label>
                         @endforeach
                     </div>
@@ -161,7 +161,7 @@
                         <div class="flex items-center justify-between gap-2">
                             <h3 class="text-lg font-semibold">{{ $plan['label'] }}</h3>
                             @if ($featured)
-                                <span class="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">{{ __('site.home.pricing.most_popular') }}</span>
+                                <span class="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">{{ __('ui_site.home.pricing.most_popular') }}</span>
                             @endif
                         </div>
 
@@ -178,9 +178,9 @@
                                     'hidden' => $interval !== $defaultInterval,
                                     $switch[$interval] => count($intervals) > 1,
                                 ])>
-                                    {{ $amount ?? __('site.home.pricing.contact_us') }}
+                                    {{ $amount ?? __('ui_site.home.pricing.contact_us') }}
                                     @if ($plan['per_seat'] && $amount)
-                                        <span class="text-sm font-normal text-slate-500 dark:text-slate-400">{{ __('site.home.pricing.per_seat') }}</span>
+                                        <span class="text-sm font-normal text-slate-500 dark:text-slate-400">{{ __('ui_site.home.pricing.per_seat') }}</span>
                                     @endif
                                 </p>
                             @endforeach
@@ -200,15 +200,15 @@
                             'bg-indigo-600 text-white shadow-sm hover:bg-indigo-500' => $featured,
                             'bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700' => ! $featured,
                         ])>
-                            {{ ! $plan['paid'] ? __('site.home.pricing.cta_free') : ($trialDays ? __('site.home.pricing.cta_trial') : __('site.home.pricing.cta')) }}
-                            <span class="sr-only">{{ __('site.home.pricing.cta_plan', ['plan' => $plan['label']]) }}</span>
+                            {{ ! $plan['paid'] ? __('ui_site.home.pricing.cta_free') : ($trialDays ? __('ui_site.home.pricing.cta_trial') : __('ui_site.home.pricing.cta')) }}
+                            <span class="sr-only">{{ __('ui_site.home.pricing.cta_plan', ['plan' => $plan['label']]) }}</span>
                         </a>
                     </li>
                 @endforeach
             </ul>
 
             <p class="mt-8 text-center text-sm text-slate-500 dark:text-slate-400">
-                {{ __('site.home.pricing.note') }}
+                {{ __('ui_site.home.pricing.note') }}
             </p>
         </div>
     </section>
@@ -216,7 +216,7 @@
     {{-- FAQ --}}
     <section id="faq" aria-labelledby="faq-heading" class="scroll-mt-20 border-t border-slate-200 bg-slate-50 py-24 dark:border-slate-800 dark:bg-slate-900/40">
         <div class="mx-auto w-full max-w-3xl px-6">
-            <h2 id="faq-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">{{ __('site.home.faq.heading') }}</h2>
+            <h2 id="faq-heading" class="text-3xl font-semibold tracking-tight sm:text-4xl">{{ __('ui_site.home.faq.heading') }}</h2>
 
             <div class="mt-10 divide-y divide-slate-200 dark:divide-slate-800">
                 @foreach ($faqs as $faq)
@@ -231,7 +231,7 @@
             </div>
 
             <p class="mt-10 text-slate-600 dark:text-slate-300">
-                {!! __('site.home.faq.contact', ['email' => '<a href="mailto:'.e(config('site.contact_email')).'" class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">'.e(config('site.contact_email')).'</a>']) !!}
+                {!! __('ui_site.home.faq.contact', ['email' => '<a href="mailto:'.e(config('site.contact_email')).'" class="font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">'.e(config('site.contact_email')).'</a>']) !!}
             </p>
         </div>
     </section>
@@ -240,10 +240,10 @@
     <section class="py-24">
         <div class="mx-auto w-full max-w-6xl px-6">
             <div class="rounded-3xl bg-indigo-600 px-8 py-16 text-center text-white shadow-xl dark:bg-indigo-700">
-                <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">{{ __('site.home.cta.heading') }}</h2>
-                <p class="mx-auto mt-4 max-w-xl text-lg text-indigo-100">{{ __('site.home.cta.body') }}</p>
+                <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">{{ __('ui_site.home.cta.heading') }}</h2>
+                <p class="mx-auto mt-4 max-w-xl text-lg text-indigo-100">{{ __('ui_site.home.cta.body') }}</p>
                 <a href="{{ $registerUrl }}" class="mt-8 inline-block rounded-lg bg-white px-5 py-3 font-medium text-indigo-700 shadow-sm hover:bg-indigo-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">
-                    {{ __('site.home.cta.button') }}
+                    {{ __('ui_site.home.cta.button') }}
                 </a>
             </div>
         </div>

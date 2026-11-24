@@ -54,7 +54,7 @@ class SocialCallbackController
             // A cancelled consent screen, an expired state, the provider down.
             report($exception);
 
-            return $this->refuse(__('social.failed', ['provider' => $label]));
+            return $this->refuse(__('ui_social.failed', ['provider' => $label]));
         }
 
         if ($user = Filament::auth()->user()) {
@@ -70,7 +70,7 @@ class SocialCallbackController
         $email = $this->verifiedEmail($provider, $account);
 
         if ($email === null) {
-            return $this->refuse(__('social.no_verified_email', ['provider' => $label]));
+            return $this->refuse(__('ui_social.no_verified_email', ['provider' => $label]));
         }
 
         // Whatever case the address was typed in at sign-up, as Filament Teams matches invitations:
@@ -78,7 +78,7 @@ class SocialCallbackController
         $user = User::query()->whereRaw('lower(email) = ?', [$email])->first();
 
         if ($user && ! $user->hasVerifiedEmail()) {
-            return $this->refuse(__('social.unverified_account', ['email' => $email]));
+            return $this->refuse(__('ui_social.unverified_account', ['email' => $email]));
         }
 
         if (! $user) {
@@ -113,11 +113,11 @@ class SocialCallbackController
 
         // As strings: some database drivers return keys as strings.
         if ($owner !== null && (string) $owner !== (string) $user->getKey()) {
-            Notification::make()->danger()->title(__('social.already_connected', ['provider' => $label]))->send();
+            Notification::make()->danger()->title(__('ui_social.already_connected', ['provider' => $label]))->send();
         } else {
             $this->link($user, $provider, $account);
 
-            Notification::make()->success()->title(__('social.connected', ['provider' => $label]))->send();
+            Notification::make()->success()->title(__('ui_social.connected', ['provider' => $label]))->send();
         }
 
         return redirect()->to(EditProfile::getUrl(panel: 'app'));
@@ -134,7 +134,7 @@ class SocialCallbackController
     protected function signIn(User $user, string $provider): RedirectResponse
     {
         if ($user->is_admin || filled($user->getAppAuthenticationSecret())) {
-            return $this->refuse(__('social.two_factor'));
+            return $this->refuse(__('ui_social.two_factor'));
         }
 
         // login() gives the session a new ID, so one planted before the sign-in is worthless (tested).

@@ -21,7 +21,7 @@ php artisan migrate
 
 Skip `php artisan session-replay:install`: it registers a provider of its own after the panel providers, and `AppPanelProvider` has to stay last in `bootstrap/providers.php`. The steps below do the same by hand.
 
-The migrations run from the package and add six tables (`replay_sessions`, `replay_chunks`, `replay_markers`, `replay_assets`, `replay_session_assets`, `replay_asset_owners`); the recordings themselves are gzip files on the disk.
+The migrations run from the package and add seven tables (`replay_sessions`, `replay_chunks`, `replay_markers`, `replay_assets`, `replay_session_assets`, `replay_asset_owners`, and `replay_assist_requests` for Assist, the live help that stays off until `SESSION_REPLAY_ASSIST=true`); the recordings themselves are gzip files on the disk.
 
 ## 2. Record the app panel, watch from the admin panel
 
@@ -108,6 +108,7 @@ The recordings are central: your team watches every workspace in one list, and t
 'replay_assets' => 'stylesheets shared by recordings',
 'replay_session_assets' => 'recordings',
 'replay_asset_owners' => 'recordings',
+'replay_assist_requests' => 'Assist requests, answered from /admin; they go with their recording',
 ```
 
 ## 7. Delete recordings with their workspace or their person
@@ -279,11 +280,11 @@ Nothing moves. Keep the recordings on the central database and say so, so they n
 
 ## Removing it
 
-Delete the plugin lines and the import from `app/Filament/Plugins.php`, the gate from `AppServiceProvider`, the schedule line, `app/Listeners/DeleteSessionReplays.php`, `tests/Feature/Modules/SessionReplayTest.php` and the six lines in `centralTables()`, then:
+Delete the plugin lines and the import from `app/Filament/Plugins.php`, the gate from `AppServiceProvider`, the schedule line, `app/Listeners/DeleteSessionReplays.php`, `tests/Feature/Modules/SessionReplayTest.php` and the seven lines in `centralTables()`, then:
 
 ```bash
 composer remove packstub/filament-session-replay packstub/session-replay
 rm config/session-replay.php
 ```
 
-The six tables stay until you drop them with a migration of your own; the files are in the disk's `session-replay` folder.
+The seven tables stay until you drop them with a migration of your own; the files are in the disk's `session-replay` folder.

@@ -18,9 +18,9 @@ enum ProjectStatus: string implements HasColor, HasLabel
     public function getLabel(): string
     {
         return match ($this) {
-            self::Active => __('projects.statuses.active'),
-            self::Paused => __('projects.statuses.paused'),
-            self::Done => __('projects.statuses.done'),
+            self::Active => __('ui_projects.statuses.active'),
+            self::Paused => __('ui_projects.statuses.paused'),
+            self::Done => __('ui_projects.statuses.done'),
         };
     }
 

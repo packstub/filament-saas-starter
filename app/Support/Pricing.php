@@ -85,7 +85,7 @@ final class Pricing
             if ($feature->isLimit()) {
                 $lines[] = self::limitLine($feature->key, $value, $feature->unit ?? $feature->label);
             } elseif ($value) {
-                $lines[] = Lang::has("pricing.features.{$feature->key}") ? __("pricing.features.{$feature->key}") : $feature->label;
+                $lines[] = Lang::has("ui_pricing.features.{$feature->key}") ? __("ui_pricing.features.{$feature->key}") : $feature->label;
             }
         }
 
@@ -98,13 +98,13 @@ final class Pricing
     private static function limitLine(string $key, ?int $value, string $fallbackUnit): string
     {
         if ($value === null) {
-            return Lang::has("pricing.unlimited_limits.{$key}")
-                ? __("pricing.unlimited_limits.{$key}")
-                : __('pricing.unlimited', ['unit' => $fallbackUnit]);
+            return Lang::has("ui_pricing.unlimited_limits.{$key}")
+                ? __("ui_pricing.unlimited_limits.{$key}")
+                : __('ui_pricing.unlimited', ['unit' => $fallbackUnit]);
         }
 
-        return Lang::has("pricing.limits.{$key}")
-            ? trans_choice("pricing.limits.{$key}", $value, ['count' => $value])
+        return Lang::has("ui_pricing.limits.{$key}")
+            ? trans_choice("ui_pricing.limits.{$key}", $value, ['count' => $value])
             : "{$value} {$fallbackUnit}";
     }
 

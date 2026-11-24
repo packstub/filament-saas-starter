@@ -125,7 +125,9 @@ it('asks the database the same number of questions however many projects are lis
         // As every request starts: nothing remembered about the member's role or the workspace's plan.
         inWorkspace($workspace, $user);
         app(WorkspacePermissions::class)->forget();
+        Teams::forgetRoles();
         Features::flush($workspace);
+        Features::forgetAllUsage();
 
         return countQueries(fn () => livewire(ManageProjects::class)->assertOk());
     };

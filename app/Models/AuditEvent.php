@@ -142,20 +142,20 @@ class AuditEvent extends Model
         $p = $this->properties ?? [];
 
         return match ($this->event) {
-            AuditEventType::MemberAdded => __('activity.descriptions.member_added', ['name' => $p['name'], 'role' => $p['role']]),
-            AuditEventType::MemberRemoved => __('activity.descriptions.member_removed', ['name' => $p['name']]),
-            AuditEventType::RoleChanged => __('activity.descriptions.role_changed', ['name' => $p['name'], 'from' => $p['from'], 'to' => $p['to']]),
+            AuditEventType::MemberAdded => __('ui_activity.descriptions.member_added', ['name' => $p['name'], 'role' => $p['role']]),
+            AuditEventType::MemberRemoved => __('ui_activity.descriptions.member_removed', ['name' => $p['name']]),
+            AuditEventType::RoleChanged => __('ui_activity.descriptions.role_changed', ['name' => $p['name'], 'from' => $p['from'], 'to' => $p['to']]),
             AuditEventType::InvitationSent => isset($p['email'])
-                ? __('activity.descriptions.invitation_sent_email', ['email' => $p['email'], 'role' => $p['role']])
-                : __('activity.descriptions.invitation_sent_link', ['role' => $p['role']]),
-            AuditEventType::InvitationAccepted => __('activity.descriptions.invitation_accepted', ['name' => $p['name']]),
-            AuditEventType::OwnershipTransferred => __('activity.descriptions.ownership_transferred', ['from' => $p['from'], 'to' => $p['to']]),
-            AuditEventType::ApiTokenCreated => __('activity.descriptions.api_token_created', ['name' => $p['name'], 'abilities' => implode(', ', $p['abilities'] ?? [])]),
+                ? __('ui_activity.descriptions.invitation_sent_email', ['email' => $p['email'], 'role' => $p['role']])
+                : __('ui_activity.descriptions.invitation_sent_link', ['role' => $p['role']]),
+            AuditEventType::InvitationAccepted => __('ui_activity.descriptions.invitation_accepted', ['name' => $p['name']]),
+            AuditEventType::OwnershipTransferred => __('ui_activity.descriptions.ownership_transferred', ['from' => $p['from'], 'to' => $p['to']]),
+            AuditEventType::ApiTokenCreated => __('ui_activity.descriptions.api_token_created', ['name' => $p['name'], 'abilities' => implode(', ', $p['abilities'] ?? [])]),
             AuditEventType::ApiTokenRevoked => isset($p['from'])
-                ? __('activity.descriptions.api_token_revoked_from', ['name' => $p['name'], 'from' => $p['from']])
-                : __('activity.descriptions.api_token_revoked', ['name' => $p['name']]),
-            AuditEventType::PlanChanged => __('activity.descriptions.plan_changed', ['from' => $p['from'], 'to' => $p['to']]),
-            AuditEventType::WorkspaceDeleted => __('activity.descriptions.workspace_deleted', ['workspace' => $this->workspace_name]),
+                ? __('ui_activity.descriptions.api_token_revoked_from', ['name' => $p['name'], 'from' => $p['from']])
+                : __('ui_activity.descriptions.api_token_revoked', ['name' => $p['name']]),
+            AuditEventType::PlanChanged => __('ui_activity.descriptions.plan_changed', ['from' => $p['from'], 'to' => $p['to']]),
+            AuditEventType::WorkspaceDeleted => __('ui_activity.descriptions.workspace_deleted', ['workspace' => $this->workspace_name]),
         };
     }
 
@@ -164,9 +164,9 @@ class AuditEvent extends Model
      */
     public function actorLabel(): string
     {
-        $actor = $this->actor_name ?? __('activity.system');
+        $actor = $this->actor_name ?? __('ui_activity.system');
 
-        return $this->impersonator_name ? __('activity.actor_with_support', ['actor' => $actor, 'support' => $this->impersonator_name]) : $actor;
+        return $this->impersonator_name ? __('ui_activity.actor_with_support', ['actor' => $actor, 'support' => $this->impersonator_name]) : $actor;
     }
 
     /**

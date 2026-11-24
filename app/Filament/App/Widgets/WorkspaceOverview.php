@@ -15,11 +15,11 @@ class WorkspaceOverview extends StatsOverviewWidget
     protected function getStats(): array
     {
         return [
-            Stat::make(__('dashboard.overview.plan'), Features::planLabel())
+            Stat::make(__('ui_dashboard.overview.plan'), Features::planLabel())
                 ->description($this->trialNote()),
-            Stat::make(__('dashboard.overview.projects'), $this->usage('projects')),
-            Stat::make(__('dashboard.overview.seats'), $this->usage('seats'))
-                ->description(__('dashboard.overview.seats_description')),
+            Stat::make(__('ui_dashboard.overview.projects'), $this->usage('projects')),
+            Stat::make(__('ui_dashboard.overview.seats'), $this->usage('seats'))
+                ->description(__('ui_dashboard.overview.seats_description')),
         ];
     }
 
@@ -30,7 +30,7 @@ class WorkspaceOverview extends StatsOverviewWidget
     {
         $subscription = Filament::getTenant()?->currentSubscription();
 
-        return $subscription?->onTrial() ? __('dashboard.overview.trial_ends', ['date' => $subscription->trial_ends_at->translatedFormat('M j')]) : null;
+        return $subscription?->onTrial() ? __('ui_dashboard.overview.trial_ends', ['date' => $subscription->trial_ends_at->translatedFormat('M j')]) : null;
     }
 
     protected function usage(string $feature): string
@@ -39,6 +39,6 @@ class WorkspaceOverview extends StatsOverviewWidget
 
         return $limit === null
             ? (string) Features::used($feature)
-            : __('dashboard.overview.of', ['used' => Features::used($feature), 'limit' => $limit]);
+            : __('ui_dashboard.overview.of', ['used' => Features::used($feature), 'limit' => $limit]);
     }
 }

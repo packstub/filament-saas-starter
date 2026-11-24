@@ -23,7 +23,7 @@ class GrowthChart extends ChartWidget
 
     public function getHeading(): string
     {
-        return __('admin.growth.heading');
+        return __('ui_admin.growth.heading');
     }
 
     public function getDescription(): string
@@ -32,7 +32,7 @@ class GrowthChart extends ChartWidget
         $workspaces = array_sum(RevenueMetrics::perDay(Workspace::class));
         $changes = RevenueMetrics::planChanges();
 
-        return __('admin.growth.description', ['users' => $users, 'workspaces' => $workspaces, 'changes' => $changes]);
+        return __('ui_admin.growth.description', ['users' => $users, 'workspaces' => $workspaces, 'changes' => $changes]);
     }
 
     protected function getType(): string
@@ -47,8 +47,8 @@ class GrowthChart extends ChartWidget
 
         return [
             'datasets' => [
-                ['label' => __('admin.growth.sign_ups'), 'data' => array_values($users), 'borderColor' => '#6366f1', 'backgroundColor' => '#6366f1'],
-                ['label' => __('admin.growth.new_workspaces'), 'data' => array_values($workspaces), 'borderColor' => '#14b8a6', 'backgroundColor' => '#14b8a6', 'borderDash' => [6, 4]],
+                ['label' => __('ui_admin.growth.sign_ups'), 'data' => array_values($users), 'borderColor' => '#6366f1', 'backgroundColor' => '#6366f1'],
+                ['label' => __('ui_admin.growth.new_workspaces'), 'data' => array_values($workspaces), 'borderColor' => '#14b8a6', 'backgroundColor' => '#14b8a6', 'borderDash' => [6, 4]],
             ],
             'labels' => array_map(fn (string $day): string => CarbonImmutable::parse($day)->translatedFormat('M j'), array_keys($users)),
         ];

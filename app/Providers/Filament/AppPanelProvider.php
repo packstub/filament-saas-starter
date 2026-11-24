@@ -70,7 +70,7 @@ class AppPanelProvider extends PanelProvider
             ->tenant(Workspace::class, slugAttribute: 'slug')
             ->tenantRegistration(RegisterWorkspace::class)
             ->tenantProfile(EditWorkspace::class)
-            ->navigationGroups([NavigationGroup::make(fn (): string => __('app.navigation.workspace'))])
+            ->navigationGroups([NavigationGroup::make(fn (): string => __('ui_app.navigation.workspace'))])
             ->discoverResources(in: app_path('Filament/App/Resources'), for: 'App\Filament\App\Resources')
             ->discoverPages(in: app_path('Filament/App/Pages'), for: 'App\Filament\App\Pages')
             ->discoverWidgets(in: app_path('Filament/App/Widgets'), for: 'App\Filament\App\Widgets')
@@ -94,14 +94,14 @@ class AppPanelProvider extends PanelProvider
                 // Members and Invitations pages, roles from config/packstub-teams.php.
                 TeamsPlugin::make()
                     ->roleProvider('simple')
-                    ->navigationGroup(fn (): string => __('app.navigation.workspace'))
+                    ->navigationGroup(fn (): string => __('ui_app.navigation.workspace'))
                     // Signing up creates a first workspace; following an invitation joins that workspace instead.
                     ->personalTeams(fn (User $user): Workspace => Workspace::named(Teams::personalTeamName($user)))
                     // Seats come from the plan, like every other limit.
                     ->seatLimit(fn (Workspace $workspace): ?int => Features::limit('seats', $workspace)),
                 // The "Your plan" page, with usage against each limit.
                 Plans::plugin()
-                    ->navigationGroup(fn (): string => __('app.navigation.workspace')),
+                    ->navigationGroup(fn (): string => __('ui_app.navigation.workspace')),
                 SupportLogins::plugin(),
             ])
             // Optional modules (docs/modules), listed in app/Filament/Plugins.php.

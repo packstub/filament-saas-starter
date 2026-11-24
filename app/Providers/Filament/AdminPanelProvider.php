@@ -46,8 +46,8 @@ class AdminPanelProvider extends PanelProvider
                 AppAuthentication::make()->recoverable(),
             ], isRequired: ! app()->isLocal())
             ->navigationGroups([
-                NavigationGroup::make(fn (): string => __('app.navigation.customers')),
-                NavigationGroup::make(fn (): string => __('app.navigation.plans')),
+                NavigationGroup::make(fn (): string => __('ui_app.navigation.customers')),
+                NavigationGroup::make(fn (): string => __('ui_app.navigation.plans')),
             ])
             ->discoverResources(in: app_path('Filament/Admin/Resources'), for: 'App\Filament\Admin\Resources')
             // Revenue, subscriptions and growth, from the app's own tables (App\Billing\RevenueMetrics).
@@ -73,7 +73,7 @@ class AdminPanelProvider extends PanelProvider
                 Plans::plugin()
                     ->planPage(null)
                     ->adminPages()
-                    ->navigationGroup(fn (): string => __('app.navigation.plans')),
+                    ->navigationGroup(fn (): string => __('ui_app.navigation.plans')),
                 SupportLogins::plugin(),
             ])
             // Optional modules (docs/modules), listed in app/Filament/Plugins.php.

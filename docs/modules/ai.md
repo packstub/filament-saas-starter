@@ -1,10 +1,5 @@
 # An AI assistant with credits
 
-<!-- verify: skip until packstub/credits 1.1, packstub/agents 1.12 and packstub/filament-agents 1.19 are on Packagist -->
-
-> [!IMPORTANT]
-> This recipe needs `packstub/credits` 1.1, `packstub/agents` 1.12 and `packstub/filament-agents` 1.19, the first releases that run on PHP 8.3, the kit's floor. Until they are on Packagist, the versions there need PHP 8.4: raise the platform first (see [Requirements](../../README.md#requirements)) or wait for the releases.
-
 Three packages together give each workspace an AI assistant that pays for itself:
 
 - [Filament Agents](https://github.com/packstub/filament-agents) puts a chat in the app panel (the **Ask** button in the topbar, a slide-over, a page of past chats). The assistant works through tools you write, with the person's own permissions, inside their workspace.
@@ -13,7 +8,7 @@ Three packages together give each workspace an AI assistant that pays for itself
 
 ## What you need
 
-- The three packages above. They bring `laravel/ai` and `laravel/mcp`; the kit already has `laravel/sanctum`.
+- The three packages above: `packstub/filament-agents` 1.20 or later (it brings `packstub/agents` 1.14) and `packstub/credits` 1.1, stable on Packagist, PHP 8.3+. They bring `laravel/ai` and `laravel/mcp`; the kit already has `laravel/sanctum`.
 - A provider key: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` or `XAI_API_KEY`, with `AGENT_PROVIDER` naming it. Without a key the chat hides itself.
 - A queue worker in production (`QUEUE_CONNECTION=database` or Redis, `php artisan queue:work`): every answer is a queued job. With the kit's `sync` default it runs inside the request, fine while you try it.
 - A panel theme, for the chat's styles (step 7).
@@ -22,14 +17,14 @@ Three packages together give each workspace an AI assistant that pays for itself
 ## 1. Install
 
 ```bash run
-composer require packstub/filament-agents:^1.19 packstub/credits:^1.1
+composer require packstub/filament-agents:^1.20 packstub/credits:^1.1
 php artisan vendor:publish --tag=packstub-credits-config
 php artisan migrate
 ```
 
 Both packages run their migrations from `vendor`: the chat tables (`agent_conversations`, `agent_turns`…) and the ledger (`credit_wallets`, `credit_grants`, `credit_holds`, `credit_transactions`, `credit_allocations`).
 
-The engine also serves the tools to Claude Code, Cursor and other MCP clients. The kit's API tokens belong to workspaces, while MCP tokens belong to people, so keep that off until you want it (see [Going further](#going-further)). In `.env`, and `.env.example`:
+The engine also serves the tools to Claude Code, Cursor and other MCP clients. The kit's API tokens belong to workspaces, while MCP tokens belong to people, so keep that off until you want it (see [Going further](#going-further)). In `.env`, in `.env.example`,
 
 ```dotenv append=.env
 # Agents: the in-panel chat only; no MCP endpoint.
@@ -39,6 +34,12 @@ AGENT_MCP_ENABLED=false
 ```dotenv append=.env.example
 # Agents: the in-panel chat only; no MCP endpoint.
 AGENT_MCP_ENABLED=false
+```
+
+and in the Plugins table of `docs/deploy/environment.md`:
+
+```markdown in=docs/deploy/environment.md after="## Plugins|SANCTUM_TOKEN_PREFIX"
+| `AGENT_MCP_ENABLED` | `false` | Keeps Agents' MCP endpoint off; the chat in the app panel works without it. |
 ```
 
 ## 2. The assistant and its first tool
@@ -262,7 +263,7 @@ In `app/Filament/Plugins.php`:
 use App\Ai\Agents\Assistant;
 use App\Ai\Middleware\ChargeAiCredits;
 use App\Mcp\Tools\ListProjects;
-use Packstub\Agents\AgentsPlugin;
+use Packstub\FilamentAgents\AgentsPlugin;
 ```
 
 The chat in the app panel, without the MCP token page:

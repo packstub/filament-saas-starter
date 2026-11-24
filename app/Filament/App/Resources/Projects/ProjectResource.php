@@ -32,12 +32,12 @@ class ProjectResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return __('projects.label');
+        return __('ui_projects.label');
     }
 
     public static function getPluralModelLabel(): string
     {
-        return __('projects.plural_label');
+        return __('ui_projects.plural_label');
     }
 
     /**
@@ -54,11 +54,11 @@ class ProjectResource extends Resource
     {
         return $schema->components([
             TextInput::make('name')
-                ->label(__('projects.name'))
+                ->label(__('ui_projects.name'))
                 ->required()
                 ->maxLength(80),
             Select::make('status')
-                ->label(__('projects.status'))
+                ->label(__('ui_projects.status'))
                 ->options(ProjectStatus::class)
                 ->default(ProjectStatus::Active)
                 ->required(),
@@ -70,14 +70,14 @@ class ProjectResource extends Resource
         return $table
             ->columns([
                 TextColumn::make('name')
-                    ->label(__('projects.name'))
+                    ->label(__('ui_projects.name'))
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('status')
-                    ->label(__('projects.status'))
+                    ->label(__('ui_projects.status'))
                     ->badge(),
                 TextColumn::make('updated_at')
-                    ->label(__('projects.updated'))
+                    ->label(__('ui_projects.updated'))
                     ->since()
                     ->sortable(),
             ])
