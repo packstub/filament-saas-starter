@@ -18,14 +18,16 @@ Filament Teams (Members, Invitations, the invitation e-mail), Filament Features 
 
 | File | What |
 | --- | --- |
-| `lang/*/app.php` | Navigation groups, the language picker |
-| `lang/*/profile.php`, `workspace.php`, `projects.php`, `dashboard.php`, `social.php` | The customer panel |
-| `lang/*/billing.php`, `api_tokens.php`, `activity.php` | Billing, API tokens, the audit log and its event names |
-| `lang/*/admin.php` | The admin panel and its dashboard |
-| `lang/*/site.php`, `pricing.php` | The home page, the pricing section, Terms and Privacy |
-| `lang/*/mail.php` | The kit's e-mails and the mail footer |
+| `lang/*/ui_app.php` | Navigation groups, the language picker |
+| `lang/*/ui_profile.php`, `ui_workspace.php`, `ui_projects.php`, `ui_dashboard.php`, `ui_social.php` | The customer panel |
+| `lang/*/ui_billing.php`, `ui_api_tokens.php`, `ui_activity.php` | Billing, API tokens, the audit log and its event names |
+| `lang/*/ui_admin.php` | The admin panel and its dashboard |
+| `lang/*/ui_site.php`, `ui_pricing.php` | The home page, the pricing section, Terms and Privacy |
+| `lang/*/ui_mail.php` | The kit's e-mails and the mail footer |
 
 The plan names and descriptions in `config/packstub-features.php` and the tagline and description in `config/site.php` are configuration, in one language. For a multilingual site, put a translation key there and print it with `__()`.
+
+Every file starts with `ui_`. A file named after a plain word (`workspace.php`, `billing.php`) would answer `__('Workspace')` with its whole array on a case-insensitive disk, such as a Mac's, and a package that labels a column `__('Workspace')` would fail there with a type error. `TranslationsTest` keeps the names that way.
 
 ## What stays as it was written
 
@@ -52,4 +54,4 @@ French as the example:
 
 ## Adding text
 
-Never write text a person reads straight into a page, a notification or a view: add a key to `lang/en/<file>.php` and to every other language, and call `__('file.key', ['name' => $value])`. Filament's static `$title`, `$navigationLabel` and `$modelLabel` cannot call `__()`; override `getTitle()`, `getNavigationLabel()` or `getModelLabel()` instead.
+Never write text a person reads straight into a page, a notification or a view: add a key to `lang/en/ui_<file>.php` and to every other language, and call `__('ui_file.key', ['name' => $value])`. Filament's static `$title`, `$navigationLabel` and `$modelLabel` cannot call `__()`; override `getTitle()`, `getNavigationLabel()` or `getModelLabel()` instead.

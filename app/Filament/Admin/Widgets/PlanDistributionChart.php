@@ -19,7 +19,7 @@ class PlanDistributionChart extends ChartWidget
 
     public function getHeading(): string
     {
-        return __('admin.plan_distribution.heading');
+        return __('ui_admin.plan_distribution.heading');
     }
 
     protected function getType(): string
@@ -33,7 +33,7 @@ class PlanDistributionChart extends ChartWidget
 
         return [
             'datasets' => [[
-                'label' => __('admin.plan_distribution.dataset'),
+                'label' => __('ui_admin.plan_distribution.dataset'),
                 'data' => array_values($plans),
                 'backgroundColor' => array_slice(['#94a3b8', '#6366f1', '#14b8a6', '#f59e0b', '#ec4899', '#0ea5e9'], 0, count($plans)),
             ]],

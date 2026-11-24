@@ -1,55 +1,55 @@
 <x-filament-panels::page>
     {{-- For the developer: what is still missing in .env. Customers in production never see key names. --}}
     @if ($this->getMissingKeys() && ! app()->isProduction())
-        <x-filament::section icon="heroicon-o-key" :heading="__('billing.setup.heading')">
+        <x-filament::section icon="heroicon-o-key" :heading="__('ui_billing.setup.heading')">
             <x-slot name="description">
-                {{ __('billing.setup.description') }}
+                {{ __('ui_billing.setup.description') }}
             </x-slot>
 
             <ol style="display:flex;flex-direction:column;gap:.5rem;font-size:.875rem;list-style:decimal;padding-inline-start:1.25rem">
                 <li>
-                    {{ __('billing.setup.step_product') }}
+                    {{ __('ui_billing.setup.step_product') }}
                 </li>
                 <li>
-                    {!! __('billing.setup.step_keys') !!}
+                    {!! __('ui_billing.setup.step_keys') !!}
                     @foreach ($this->getMissingKeys() as $key)
                         <code>{{ $key }}</code>@if (! $loop->last), @endif
                     @endforeach
                 </li>
                 <li>
-                    {{ __('billing.setup.step_webhook') }}
+                    {{ __('ui_billing.setup.step_webhook') }}
                     <code>stripe listen --forward-to {{ route('cashier.webhook') }}</code>
                 </li>
             </ol>
         </x-filament::section>
     @elseif (! $this->isConfigured())
-        <x-filament::section icon="heroicon-o-clock" :heading="__('billing.coming_soon.heading')">
+        <x-filament::section icon="heroicon-o-clock" :heading="__('ui_billing.coming_soon.heading')">
             <x-slot name="description">
-                {{ __('billing.coming_soon.description') }}
+                {{ __('ui_billing.coming_soon.description') }}
             </x-slot>
         </x-filament::section>
     @endif
 
     @if ($this->isConfigured() && $this->trialEndsAt())
-        <x-filament::section icon="heroicon-o-gift" icon-color="primary" :heading="__('billing.trial.heading', ['date' => $this->trialEndsAt()->isoFormat('ll')])">
+        <x-filament::section icon="heroicon-o-gift" icon-color="primary" :heading="__('ui_billing.trial.heading', ['date' => $this->trialEndsAt()->isoFormat('ll')])">
             <x-slot name="description">
-                {{ __('billing.trial.description') }}
+                {{ __('ui_billing.trial.description') }}
             </x-slot>
         </x-filament::section>
     @endif
 
     @if ($this->isConfigured() && $this->needsFirstPayment())
-        <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning" :heading="__('billing.first_payment.heading')">
+        <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning" :heading="__('ui_billing.first_payment.heading')">
             <x-slot name="description">
-                {{ __('billing.first_payment.description') }}
+                {{ __('ui_billing.first_payment.description') }}
             </x-slot>
 
             {{ $this->completePaymentAction }}
         </x-filament::section>
     @elseif ($this->isConfigured() && $this->isPaused())
-        <x-filament::section icon="heroicon-o-pause-circle" icon-color="warning" :heading="__('billing.paused.heading')">
+        <x-filament::section icon="heroicon-o-pause-circle" icon-color="warning" :heading="__('ui_billing.paused.heading')">
             <x-slot name="description">
-                {{ __('billing.paused.description') }}
+                {{ __('ui_billing.paused.description') }}
             </x-slot>
 
             <div style="display:flex;gap:.75rem;flex-wrap:wrap">
@@ -58,9 +58,9 @@
             </div>
         </x-filament::section>
     @elseif ($this->isConfigured() && $this->needsPayment())
-        <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning" :heading="__('billing.payment_failed.heading')">
+        <x-filament::section icon="heroicon-o-exclamation-triangle" icon-color="warning" :heading="__('ui_billing.payment_failed.heading')">
             <x-slot name="description">
-                {{ __('billing.payment_failed.description') }}
+                {{ __('ui_billing.payment_failed.description') }}
             </x-slot>
 
             {{ $this->manageAction }}
@@ -69,7 +69,7 @@
 
     @if ($this->getIntervals())
         <div style="display:flex;justify-content:center">
-            <x-filament::tabs :label="__('billing.interval_label')">
+            <x-filament::tabs :label="__('ui_billing.interval_label')">
                 @foreach ($this->getIntervals() as $key => $label)
                     <x-filament::tabs.item :active="$this->selectedInterval() === $key" wire:click="$set('interval', '{{ $key }}')">
                         {{ $label }}
@@ -86,7 +86,7 @@
                     <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem">
                         <div style="font-size:1rem;font-weight:600">{{ $plan['label'] }}</div>
                         @if ($plan['current'])
-                            <x-filament::badge color="success">{{ __('billing.plan.current') }}</x-filament::badge>
+                            <x-filament::badge color="success">{{ __('ui_billing.plan.current') }}</x-filament::badge>
                         @endif
                     </div>
 
@@ -95,12 +95,12 @@
                     @endif
 
                     @if ($plan['sold'] && $this->isConfigured() && $this->trialDaysOnOffer())
-                        <x-filament::badge color="info" style="align-self:flex-start">{{ trans_choice('billing.trial.badge', $this->trialDaysOnOffer(), ['days' => $this->trialDaysOnOffer()]) }}</x-filament::badge>
+                        <x-filament::badge color="info" style="align-self:flex-start">{{ trans_choice('ui_billing.trial.badge', $this->trialDaysOnOffer(), ['days' => $this->trialDaysOnOffer()]) }}</x-filament::badge>
                     @endif
 
                     @if ($plan['per_seat'])
                         <div style="font-size:.75rem;opacity:.7">
-                            {{ trans_choice('billing.plan.per_seat', $this->billableSeats()) }}
+                            {{ trans_choice('ui_billing.plan.per_seat', $this->billableSeats()) }}
                         </div>
                     @endif
 
@@ -124,7 +124,7 @@
                             </div>
                         @elseif ($this->hasSubscription())
                             <div style="margin-top:auto;font-size:.75rem;opacity:.7">
-                                {{ __('billing.plan.cancel_to_switch') }}
+                                {{ __('ui_billing.plan.cancel_to_switch') }}
                             </div>
                         @endif
                     @endif

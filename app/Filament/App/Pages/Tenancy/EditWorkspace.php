@@ -26,7 +26,7 @@ class EditWorkspace extends EditTenantProfile
 {
     public static function getLabel(): string
     {
-        return __('workspace.settings');
+        return __('ui_workspace.settings');
     }
 
     public function form(Schema $schema): Schema
@@ -43,14 +43,14 @@ class EditWorkspace extends EditTenantProfile
     {
         return $schema->components([
             $this->getFormContentComponent(),
-            Section::make(__('workspace.export.heading'))
-                ->description(__('workspace.export.description'))
+            Section::make(__('ui_workspace.export.heading'))
+                ->description(__('ui_workspace.export.description'))
                 ->visible(fn (): bool => $this->canExport())
                 ->schema([
                     Actions::make([$this->exportAction()]),
                 ]),
-            Section::make(__('workspace.delete.heading'))
-                ->description(__('workspace.delete.description'))
+            Section::make(__('ui_workspace.delete.heading'))
+                ->description(__('ui_workspace.delete.description'))
                 ->visible(fn (): bool => $this->canDelete())
                 ->schema([
                     Actions::make([$this->deleteAction()]),
@@ -65,8 +65,8 @@ class EditWorkspace extends EditTenantProfile
     protected function logoUpload(): FileUpload
     {
         return FileUpload::make('logo_path')
-            ->label(__('workspace.logo.label'))
-            ->helperText(__('workspace.logo.help'))
+            ->label(__('ui_workspace.logo.label'))
+            ->helperText(__('ui_workspace.logo.help'))
             ->image()
             ->avatar()
             ->disk(Uploads::diskName())
@@ -83,7 +83,7 @@ class EditWorkspace extends EditTenantProfile
     public function exportAction(): Action
     {
         return Action::make('export')
-            ->label(__('workspace.export.action'))
+            ->label(__('ui_workspace.export.action'))
             ->icon(Heroicon::OutlinedArrowDownTray)
             ->color('gray')
             ->authorize(fn (): bool => $this->canExport())
@@ -99,20 +99,20 @@ class EditWorkspace extends EditTenantProfile
     public function deleteAction(): Action
     {
         return Action::make('delete')
-            ->label(__('workspace.delete.action'))
+            ->label(__('ui_workspace.delete.action'))
             ->icon(Heroicon::OutlinedTrash)
             ->color('danger')
             ->authorize(fn (): bool => $this->canDelete())
             ->requiresConfirmation()
-            ->modalHeading(fn (): string => __('workspace.delete.modal_heading', ['workspace' => $this->workspace()->name]))
-            ->modalDescription(__('workspace.delete.modal_description'))
-            ->modalSubmitActionLabel(__('workspace.delete.action'))
+            ->modalHeading(fn (): string => __('ui_workspace.delete.modal_heading', ['workspace' => $this->workspace()->name]))
+            ->modalDescription(__('ui_workspace.delete.modal_description'))
+            ->modalSubmitActionLabel(__('ui_workspace.delete.action'))
             ->schema([
                 TextInput::make('name')
-                    ->label(__('workspace.delete.confirm_name'))
+                    ->label(__('ui_workspace.delete.confirm_name'))
                     ->required()
                     ->in(fn (): array => [$this->workspace()->name])
-                    ->validationMessages(['in' => __('workspace.delete.wrong_name')]),
+                    ->validationMessages(['in' => __('ui_workspace.delete.wrong_name')]),
             ])
             ->action(function (Action $action) {
                 try {
@@ -122,14 +122,14 @@ class EditWorkspace extends EditTenantProfile
 
                     Notification::make()
                         ->danger()
-                        ->title(__('workspace.delete.stripe_failed'))
-                        ->body(__('workspace.delete.try_again'))
+                        ->title(__('ui_workspace.delete.stripe_failed'))
+                        ->body(__('ui_workspace.delete.try_again'))
                         ->send();
 
                     $action->halt();
                 }
 
-                Notification::make()->success()->title(__('workspace.delete.deleted'))->send();
+                Notification::make()->success()->title(__('ui_workspace.delete.deleted'))->send();
 
                 // The panel picks another workspace of theirs, or offers to create one.
                 return redirect()->route('filament.app.tenant');

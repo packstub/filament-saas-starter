@@ -18,7 +18,7 @@ class RegisterWorkspace extends RegisterTenant
 {
     public static function getLabel(): string
     {
-        return __('workspace.new');
+        return __('ui_workspace.new');
     }
 
     public function form(Schema $schema): Schema

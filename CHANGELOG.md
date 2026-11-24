@@ -36,7 +36,7 @@ First release of Filament SaaS Starter: a multi-tenant SaaS on Laravel 13 and Fi
 - Delete account on the Profile page, behind the password; workspaces only that person used go with it, and audit logs keep what happened without their name or e-mail address
 - Workspace logos and profile pictures, shown in the workspace and user menus, stored per workspace or person on a configurable disk (local or S3) and removed with them
 - Branded e-mails: one layout and theme for every e-mail, with the workspace's name and logo on its invitations, and notices for a failed payment, a deleted workspace and a deleted account
-- The kit's text in translation files, with a complete Spanish translation, a Language choice on the Profile page that the e-mails follow, a language switch on the home page, and a test that keeps every language complete
+- The kit's text in translation files (`lang/<locale>/ui_*.php`, so a package's `__('Workspace')` never loads one on a Mac), with a complete Spanish translation, a Language choice on the Profile page that the e-mails follow, a language switch on the home page, and a test that keeps every language complete
 - Download your data (Profile page) and Export workspace data (Workspace settings, owners), each as one JSON file
 - After Transfer ownership, Stripe's receipts and billing e-mails go to the new owner
 - API tokens per workspace, with abilities and an expiry, created and revoked by owners and admins on an API tokens page

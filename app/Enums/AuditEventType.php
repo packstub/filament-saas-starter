@@ -26,7 +26,7 @@ enum AuditEventType: string implements HasColor, HasIcon, HasLabel
 
     public function getLabel(): string
     {
-        return __('activity.events.'.match ($this) {
+        return __('ui_activity.events.'.match ($this) {
             self::MemberAdded => 'member_added',
             self::MemberRemoved => 'member_removed',
             self::RoleChanged => 'role_changed',

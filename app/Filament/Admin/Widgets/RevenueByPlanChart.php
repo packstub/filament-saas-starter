@@ -19,7 +19,7 @@ class RevenueByPlanChart extends ChartWidget
 
     public function getHeading(): string
     {
-        return __('admin.revenue_by_plan.heading');
+        return __('ui_admin.revenue_by_plan.heading');
     }
 
     protected function getType(): string
@@ -33,7 +33,7 @@ class RevenueByPlanChart extends ChartWidget
 
         return [
             'datasets' => [[
-                'label' => __('admin.revenue_by_plan.dataset', ['currency' => strtoupper((string) config('cashier.currency'))]),
+                'label' => __('ui_admin.revenue_by_plan.dataset', ['currency' => strtoupper((string) config('cashier.currency'))]),
                 'data' => array_map(fn (int $cents): float => round($cents / 100, 2), array_values($plans)),
                 'backgroundColor' => '#6366f1',
             ]],

@@ -36,17 +36,17 @@ class Billing extends Page
 {
     public static function getNavigationGroup(): ?string
     {
-        return __('app.navigation.workspace');
+        return __('ui_app.navigation.workspace');
     }
 
     public static function getNavigationLabel(): string
     {
-        return __('billing.title');
+        return __('ui_billing.title');
     }
 
     public function getTitle(): string
     {
-        return __('billing.title');
+        return __('ui_billing.title');
     }
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedCreditCard;
@@ -76,15 +76,15 @@ class Billing extends Page
         if (request()->query('checkout') === 'success') {
             Notification::make()
                 ->success()
-                ->title(__('billing.checkout_success.title'))
-                ->body(__('billing.checkout_success.body'))
+                ->title(__('ui_billing.checkout_success.title'))
+                ->body(__('ui_billing.checkout_success.body'))
                 ->send();
         }
     }
 
     public function getSubheading(): ?string
     {
-        return __('billing.subheading', ['plan' => Features::planLabel()]);
+        return __('ui_billing.subheading', ['plan' => Features::planLabel()]);
     }
 
     public function isConfigured(): bool
@@ -173,7 +173,7 @@ class Billing extends Page
     public function manageAction(): Action
     {
         return Action::make('manage')
-            ->label(__('billing.actions.manage'))
+            ->label(__('ui_billing.actions.manage'))
             ->icon(Heroicon::OutlinedArrowTopRightOnSquare)
             ->color('gray')
             ->authorize(fn (): bool => static::canAccess())
@@ -189,7 +189,7 @@ class Billing extends Page
     public function completePaymentAction(): Action
     {
         return Action::make('completePayment')
-            ->label(__('billing.actions.complete_payment'))
+            ->label(__('ui_billing.actions.complete_payment'))
             ->icon(Heroicon::OutlinedCreditCard)
             ->authorize(fn (): bool => static::canAccess())
             ->action(function () {
@@ -219,7 +219,7 @@ class Billing extends Page
     public function resumeAction(): Action
     {
         return Action::make('resume')
-            ->label(__('billing.actions.resume'))
+            ->label(__('ui_billing.actions.resume'))
             ->icon(Heroicon::OutlinedPlay)
             ->authorize(fn (): bool => static::canAccess())
             ->action(function () {
@@ -239,7 +239,7 @@ class Billing extends Page
                 $subscription->forceFill(['stripe_status' => $stripeSubscription->status])->save();
                 $this->workspace()->syncPlanFromSubscription();
 
-                Notification::make()->success()->title(__('billing.plan_active', ['plan' => Features::planLabel()]))->send();
+                Notification::make()->success()->title(__('ui_billing.plan_active', ['plan' => Features::planLabel()]))->send();
 
                 return null;
             });
@@ -252,7 +252,7 @@ class Billing extends Page
     public function subscribeAction(): Action
     {
         return Action::make('subscribe')
-            ->label(fn (array $arguments): string => __('billing.actions.choose', ['plan' => Features::planDefinition($arguments['plan'])?->label]))
+            ->label(fn (array $arguments): string => __('ui_billing.actions.choose', ['plan' => Features::planDefinition($arguments['plan'])?->label]))
             ->authorize(fn (): bool => static::canAccess())
             ->action(function (array $arguments) {
                 $price = StripePrices::for($arguments['plan'], $arguments['interval'] ?? 'monthly');
@@ -285,11 +285,11 @@ class Billing extends Page
     {
         return Action::make('changePlan')
             ->label(fn (array $arguments): string => $arguments['plan'] === Features::plan()
-                ? __('billing.actions.switch_interval', ['interval' => Str::lower(StripePrices::label($arguments['interval'] ?? 'monthly'))])
-                : __('billing.actions.switch_to', ['plan' => Features::planDefinition($arguments['plan'])?->label]))
+                ? __('ui_billing.actions.switch_interval', ['interval' => Str::lower(StripePrices::label($arguments['interval'] ?? 'monthly'))])
+                : __('ui_billing.actions.switch_to', ['plan' => Features::planDefinition($arguments['plan'])?->label]))
             ->authorize(fn (): bool => static::canAccess())
             ->requiresConfirmation()
-            ->modalDescription(__('billing.actions.change_plan_description'))
+            ->modalDescription(__('ui_billing.actions.change_plan_description'))
             ->action(function (array $arguments) {
                 $price = StripePrices::for($arguments['plan'], $arguments['interval'] ?? 'monthly');
 
@@ -311,7 +311,7 @@ class Billing extends Page
                 // The webhook does the same a moment later; this saves the wait.
                 $this->workspace()->syncPlanFromSubscription();
 
-                Notification::make()->success()->title(__('billing.plan_active', ['plan' => Features::planLabel()]))->send();
+                Notification::make()->success()->title(__('ui_billing.plan_active', ['plan' => Features::planLabel()]))->send();
 
                 return null;
             });
@@ -412,8 +412,8 @@ class Billing extends Page
 
         Notification::make()
             ->danger()
-            ->title(__('billing.stripe_failed.title'))
-            ->body(app()->isProduction() ? __('billing.stripe_failed.try_again') : $exception->getMessage())
+            ->title(__('ui_billing.stripe_failed.title'))
+            ->body(app()->isProduction() ? __('ui_billing.stripe_failed.try_again') : $exception->getMessage())
             ->send();
 
         return null;

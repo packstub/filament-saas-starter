@@ -53,7 +53,7 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="flex min-h-screen flex-col bg-white font-sans text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
-        <a href="#main" class="sr-only rounded-lg bg-indigo-600 px-4 py-2 text-white focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50">{{ __('site.layout.skip') }}</a>
+        <a href="#main" class="sr-only rounded-lg bg-indigo-600 px-4 py-2 text-white focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50">{{ __('ui_site.layout.skip') }}</a>
 
         <header class="sticky top-0 z-40 border-b border-slate-200/70 bg-white/85 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/85">
             <div class="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-4">
@@ -62,16 +62,16 @@
                     {{ config('app.name') }}
                 </a>
 
-                <nav aria-label="{{ __('site.layout.main_nav') }}" class="flex items-center gap-1 text-sm font-medium">
-                    <a href="{{ route('home') }}#features" class="hidden rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 sm:block dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">{{ __('site.layout.features') }}</a>
-                    <a href="{{ route('home') }}#pricing" class="hidden rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 sm:block dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">{{ __('site.layout.pricing') }}</a>
-                    <a href="{{ route('home') }}#faq" class="hidden rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 sm:block dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">{{ __('site.layout.faq') }}</a>
+                <nav aria-label="{{ __('ui_site.layout.main_nav') }}" class="flex items-center gap-1 text-sm font-medium">
+                    <a href="{{ route('home') }}#features" class="hidden rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 sm:block dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">{{ __('ui_site.layout.features') }}</a>
+                    <a href="{{ route('home') }}#pricing" class="hidden rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 sm:block dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">{{ __('ui_site.layout.pricing') }}</a>
+                    <a href="{{ route('home') }}#faq" class="hidden rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 sm:block dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">{{ __('ui_site.layout.faq') }}</a>
 
                     @auth
-                        <a href="{{ $panel->getUrl() }}" class="ml-2 rounded-lg bg-indigo-600 px-4 py-2 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ __('site.layout.open_app') }}</a>
+                        <a href="{{ $panel->getUrl() }}" class="ml-2 rounded-lg bg-indigo-600 px-4 py-2 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ __('ui_site.layout.open_app') }}</a>
                     @else
-                        <a href="{{ $panel->getLoginUrl() }}" class="rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">{{ __('site.layout.log_in') }}</a>
-                        <a href="{{ $panel->getRegistrationUrl() }}" class="ml-1 rounded-lg bg-indigo-600 px-4 py-2 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ __('site.layout.sign_up') }}</a>
+                        <a href="{{ $panel->getLoginUrl() }}" class="rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">{{ __('ui_site.layout.log_in') }}</a>
+                        <a href="{{ $panel->getRegistrationUrl() }}" class="ml-1 rounded-lg bg-indigo-600 px-4 py-2 text-white shadow-sm hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">{{ __('ui_site.layout.sign_up') }}</a>
                     @endauth
                 </nav>
             </div>
@@ -83,17 +83,17 @@
 
         <footer class="border-t border-slate-200 dark:border-slate-800">
             <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-10 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between dark:text-slate-400">
-                <p>{{ __('site.layout.copyright', ['year' => now()->year, 'company' => config('site.company')]) }}</p>
+                <p>{{ __('ui_site.layout.copyright', ['year' => now()->year, 'company' => config('site.company')]) }}</p>
 
-                <nav aria-label="{{ __('site.layout.footer_nav') }}" class="flex flex-wrap gap-x-6 gap-y-2">
-                    <a href="{{ route('home') }}#pricing" class="hover:text-slate-900 dark:hover:text-white">{{ __('site.layout.pricing') }}</a>
-                    <a href="{{ route('home') }}#faq" class="hover:text-slate-900 dark:hover:text-white">{{ __('site.layout.faq') }}</a>
-                    <a href="{{ route('terms') }}" class="hover:text-slate-900 dark:hover:text-white">{{ __('site.layout.terms') }}</a>
-                    <a href="{{ route('privacy') }}" class="hover:text-slate-900 dark:hover:text-white">{{ __('site.layout.privacy') }}</a>
-                    <a href="mailto:{{ config('site.contact_email') }}" class="hover:text-slate-900 dark:hover:text-white">{{ __('site.layout.contact') }}</a>
+                <nav aria-label="{{ __('ui_site.layout.footer_nav') }}" class="flex flex-wrap gap-x-6 gap-y-2">
+                    <a href="{{ route('home') }}#pricing" class="hover:text-slate-900 dark:hover:text-white">{{ __('ui_site.layout.pricing') }}</a>
+                    <a href="{{ route('home') }}#faq" class="hover:text-slate-900 dark:hover:text-white">{{ __('ui_site.layout.faq') }}</a>
+                    <a href="{{ route('terms') }}" class="hover:text-slate-900 dark:hover:text-white">{{ __('ui_site.layout.terms') }}</a>
+                    <a href="{{ route('privacy') }}" class="hover:text-slate-900 dark:hover:text-white">{{ __('ui_site.layout.privacy') }}</a>
+                    <a href="mailto:{{ config('site.contact_email') }}" class="hover:text-slate-900 dark:hover:text-white">{{ __('ui_site.layout.contact') }}</a>
                 </nav>
 
-                <nav aria-label="{{ __('app.language') }}" class="flex flex-wrap gap-x-4 gap-y-2">
+                <nav aria-label="{{ __('ui_app.language') }}" class="flex flex-wrap gap-x-4 gap-y-2">
                     @foreach (\App\Support\Locales::all() as $code => $name)
                         @if ($code === app()->getLocale())
                             <span aria-current="true" class="font-medium text-slate-900 dark:text-white">{{ $name }}</span>

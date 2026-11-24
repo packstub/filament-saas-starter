@@ -7,16 +7,16 @@
 <x-filament-widgets::widget>
     @unless ($dismissed)
         <x-filament::section icon="heroicon-o-rocket-launch" icon-color="primary">
-            <x-slot name="heading">{{ __('dashboard.getting_started.heading') }}</x-slot>
-            <x-slot name="description">{{ __('dashboard.getting_started.progress', ['done' => $done, 'total' => count($steps)]) }}</x-slot>
+            <x-slot name="heading">{{ __('ui_dashboard.getting_started.heading') }}</x-slot>
+            <x-slot name="description">{{ __('ui_dashboard.getting_started.progress', ['done' => $done, 'total' => count($steps)]) }}</x-slot>
 
             <x-slot name="afterHeader">
                 <x-filament::link tag="button" color="gray" size="sm" wire:click="dismiss">
-                    {{ __('dashboard.getting_started.dismiss') }}
+                    {{ __('ui_dashboard.getting_started.dismiss') }}
                 </x-filament::link>
             </x-slot>
 
-            <div role="progressbar" aria-label="{{ __('dashboard.getting_started.aria_label') }}" aria-valuemin="0" aria-valuemax="{{ count($steps) }}" aria-valuenow="{{ $done }}" style="height:.375rem;border-radius:9999px;overflow:hidden;margin-bottom:1rem;background:rgb(127 127 127 / .2)">
+            <div role="progressbar" aria-label="{{ __('ui_dashboard.getting_started.aria_label') }}" aria-valuemin="0" aria-valuemax="{{ count($steps) }}" aria-valuenow="{{ $done }}" style="height:.375rem;border-radius:9999px;overflow:hidden;margin-bottom:1rem;background:rgb(127 127 127 / .2)">
                 <div style="height:100%;width:{{ round($done / count($steps) * 100) }}%;background:var(--primary-500)"></div>
             </div>
 
@@ -32,7 +32,7 @@
                             <span style="font-weight:600;font-size:.875rem;{{ $step['done'] ? 'text-decoration:line-through;color:var(--gray-500)' : '' }}">
                                 {{ $step['title'] }}
                                 @if ($step['done'])
-                                    <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">{{ __('dashboard.getting_started.done') }}</span>
+                                    <span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap">{{ __('ui_dashboard.getting_started.done') }}</span>
                                 @endif
                             </span>
                             <span style="font-size:.875rem;color:var(--gray-500)">{{ $step['description'] }}</span>

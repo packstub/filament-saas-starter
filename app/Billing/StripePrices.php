@@ -30,7 +30,7 @@ final class StripePrices
      */
     public static function label(string $interval): string
     {
-        return array_key_exists($interval, self::INTERVALS) ? __("billing.intervals.{$interval}") : $interval;
+        return array_key_exists($interval, self::INTERVALS) ? __("ui_billing.intervals.{$interval}") : $interval;
     }
 
     /**

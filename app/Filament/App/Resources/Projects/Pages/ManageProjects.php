@@ -26,7 +26,7 @@ class ManageProjects extends ManageRecords
 
         return $limit === null
             ? null
-            : __('projects.usage', ['used' => Features::used('projects'), 'limit' => $limit, 'plan' => Features::planLabel()]);
+            : __('ui_projects.usage', ['used' => Features::used('projects'), 'limit' => $limit, 'plan' => Features::planLabel()]);
     }
 
     protected function getHeaderActions(): array
@@ -34,7 +34,7 @@ class ManageProjects extends ManageRecords
         return [
             // Shown instead of "New project" once the plan is full.
             Action::make('upgrade')
-                ->label(__('projects.upgrade'))
+                ->label(__('ui_projects.upgrade'))
                 ->icon(Heroicon::OutlinedArrowUpCircle)
                 ->url(fn (): string => Billing::getUrl())
                 ->visible(fn (): bool => ! Features::canUse('projects') && Billing::canAccess()),
@@ -49,7 +49,7 @@ class ManageProjects extends ManageRecords
                     } catch (FeaturesException $exception) {
                         $this->refuse($action, $exception->getMessage());
                     } catch (LockTimeoutException) {
-                        $this->refuse($action, __('projects.busy_title'), __('projects.busy_body'));
+                        $this->refuse($action, __('ui_projects.busy_title'), __('ui_projects.busy_body'));
                     }
                 }),
         ];

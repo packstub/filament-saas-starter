@@ -41,6 +41,6 @@ class ApiToken extends PersonalAccessToken
      */
     public static function abilityLabel(string $ability): string
     {
-        return in_array($ability, self::ABILITIES, true) ? __("api_tokens.abilities.{$ability}") : $ability;
+        return in_array($ability, self::ABILITIES, true) ? __("ui_api_tokens.abilities.{$ability}") : $ability;
     }
 }

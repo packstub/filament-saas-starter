@@ -31,7 +31,7 @@ class WorkspaceDeleted extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         return (new MailMessage)
-            ->subject(__('mail.workspace_deleted.subject', ['workspace' => $this->workspace]))
+            ->subject(__('ui_mail.workspace_deleted.subject', ['workspace' => $this->workspace]))
             ->markdown('mail.workspace-deleted', [
                 'workspace' => $this->workspace,
                 'deletedBy' => $this->deletedBy,

@@ -56,6 +56,20 @@ it('has a folder in lang for every language people can choose', function () {
     }
 });
 
+it('names every file of the kit\'s text with ui_, never after a plain word', function () {
+    // On a case-insensitive disk (a Mac's) `__('Workspace')` would load lang/en/workspace.php and return its array,
+    // and a package that labels something `__('Workspace')` would fail there. Laravel's own files, once published with
+    // `php artisan lang:publish`, keep their names.
+    $files = collect(glob(lang_path('*/*.php')))
+        ->map(fn (string $file): string => basename($file, '.php'))
+        ->reject(fn (string $name): bool => in_array($name, ['auth', 'pagination', 'passwords', 'validation'], true))
+        ->reject(fn (string $name): bool => str_starts_with($name, 'ui_'))
+        ->unique()
+        ->values();
+
+    expect($files->all())->toBe([]);
+});
+
 it('translates every English key', function (string $locale) {
     expect(array_values(array_diff(translationKeys('en'), translationKeys($locale))))->toBe([]);
 })->with(otherLocales(...));
@@ -83,7 +97,7 @@ it('speaks the language a signed-in person chose', function () {
 
     actingAs($user->fresh());
 
-    get("/app/{$workspace->slug}")->assertOk()->assertSee(__('app.navigation.workspace', [], 'es'));
+    get("/app/{$workspace->slug}")->assertOk()->assertSee(__('ui_app.navigation.workspace', [], 'es'));
 });
 
 it('speaks the language picked on the home page before signing in', function () {
